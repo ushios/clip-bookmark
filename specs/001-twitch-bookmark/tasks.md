@@ -22,9 +22,9 @@
 
 **Purpose**: プロジェクトの初期設定および共通ディレクトリ構造の初期化
 
-- [ ] T001 プロジェクト共通ディレクトリの作成 (`src/background/`, `src/content/`, `src/popup/`, `src/common/`)
-- [ ] T002 npm初期化とTypeScript設定ファイルの作成 (`package.json`, `tsconfig.json`, `src/manifest.json`)
-- [ ] T003 [P] 開発・検証用インフラの構築（Linter, Formatter, Vitest の導入・設定）
+- [x] T001 プロジェクト共通ディレクトリの作成 (`src/background/`, `src/content/`, `src/popup/`, `src/common/`)
+- [x] T002 npm初期化とTypeScript設定ファイルの作成 (`package.json`, `tsconfig.json`, `src/manifest.json`)
+- [x] T003 [P] 開発・検証用インフラの構築（Linter, Formatter, Vitest の導入・設定）
 
 ---
 
@@ -34,10 +34,10 @@
 
 **⚠️ CRITICAL**: このフェーズが完了するまで、個々のユーザーストーリーの実装を開始することはできません。
 
-- [ ] T004 共通データモデルおよび型定義の実装 (`src/common/models/bookmark.model.ts`, `src/common/models/settings.model.ts`, `src/common/models/messages.ts`)
-- [ ] T005 [P] 共通ストレージ操作および1,000件FIFOローテーション機能を備えた `StorageManager` シングルトンの実装 (`src/common/storage/storage.manager.ts`)
-- [ ] T006 [P] 送信元検証・URL検証・文字列サニタイズ用セキュリティユーティリティの実装 (`src/common/utils/security.ts`)
-- [ ] T007 プレイヤー時間・情報取得のための `BasePlatformAdapter` 抽象クラスおよび `PlatformAdapter`, `ChatObservable` インターフェースの実装 (`src/content/platforms/base.adapter.ts`, `src/content/platforms/adapter.interface.ts`)
+- [x] T004 共通データモデルおよび型定義の実装 (`src/common/models/bookmark.model.ts`, `src/common/models/settings.model.ts`, `src/common/models/messages.ts`)
+- [x] T005 [P] 共通ストレージ操作および1,000件FIFOローテーション機能を備えた `StorageManager` シングルトンの実装 (`src/common/storage/storage.manager.ts`)
+- [x] T006 [P] 送信元検証・URL検証・文字列サニタイズ用セキュリティユーティリティの実装 (`src/common/utils/security.ts`)
+- [x] T007 プレイヤー時間・情報取得のための `BasePlatformAdapter` 抽象クラスおよび `PlatformAdapter`, `ChatObservable` インターフェースの実装 (`src/content/platforms/base.adapter.ts`, `src/content/platforms/adapter.interface.ts`)
 
 **Checkpoint**: 共通基盤完了。各ユーザーストーリーの実装を並行して開始可能。
 
@@ -51,14 +51,14 @@
 
 ### Tests for User Story 1 (MANDATORY) ⚠️
 > **※実装前にテストを作成し、テストが正しく失敗することを確認してください。**
-- [ ] T008 [P] [US1] `BasePlatformAdapter` と `StorageManager` のモックを使用したショートカット記録処理およびトースト通知の単体テストの実装 (`tests/unit/shortcut.test.ts`)
+- [x] T008 [P] [US1] `BasePlatformAdapter` と `StorageManager` のモックを使用したショートカット記録処理およびトースト通知の単体テストの実装 (`tests/unit/shortcut.test.ts`)
 
 ### Implementation for User Story 1
-- [ ] T009 [P] [US1] `chrome.commands` からのショートカット入力を監視・受信し、アクティブタブに記録開始指示を送る Service Worker ロジックの実装 (`src/background/index.ts`)
-- [ ] T010 [P] [US1] TwitchプレイヤーのDOM要素から経過時間やチャンネル名、タイトルを抽出する `TwitchAdapter` の実装 (`src/content/platforms/twitch.adapter.ts`)
-- [ ] T011 [US1] 受信した指示に応じて `TwitchAdapter` から現在時間情報を抽出し Service Worker へ返信する `CommandObserver` の実装 (`src/content/observers/command.observer.ts` - T010に依存)
-- [ ] T012 [US1] 受信したデータの Sender (ID/Origin/Tab) を検証し `StorageManager` を用いて非同期で書き込む Service Worker ハンドラーの実装 (`src/background/handlers/` - T005, T006に依存)
-- [ ] T013 [US1] `chrome.storage.onChanged` による書き込み変更を監視し、Shadow DOMを生成してプレイヤーコンテナ内に安全に描画するトースト通知UIの実装 (`src/content/ui/`)
+- [x] T009 [P] [US1] `chrome.commands` からのショートカット入力を監視・受信し、アクティブタブに記録開始指示を送る Service Worker ロジックの実装 (`src/background/index.ts`)
+- [x] T010 [P] [US1] TwitchプレイヤーのDOM要素から経過時間やチャンネル名、タイトルを抽出する `TwitchAdapter` の実装 (`src/content/platforms/twitch.adapter.ts`)
+- [x] T011 [US1] 受信した指示に応じて `TwitchAdapter` から現在時間情報を抽出し Service Worker へ返信する `CommandObserver` の実装 (`src/content/observers/command.observer.ts` - T010に依存)
+- [x] T012 [US1] 受信したデータの Sender (ID/Origin/Tab) を検証し `StorageManager` を用いて非同期で書き込む Service Worker ハンドラーの実装 (`src/background/handlers/` - T005, T006に依存)
+- [x] T013 [US1] `chrome.storage.onChanged` による書き込み変更を監視し、Shadow DOMを生成してプレイヤーコンテナ内に安全に描画するトースト通知UIの実装 (`src/content/ui/`)
 
 **Checkpoint**: ショートカットキーによるブックマーク保存・画面通知が独立して動作することを確認。
 
@@ -72,12 +72,12 @@
 
 ### Tests for User Story 2 (MANDATORY) ⚠️
 > **※実装前にテストを作成し、テストが正しく失敗することを確認してください。**
-- [ ] T014 [P] [US2] IME入力中の除外、自分以外の発言の早期リターン、設定OFF時の `MutationObserver` 切断動作を検証する単体テストの実装 (`tests/unit/chat.test.ts`)
+- [x] T014 [P] [US2] IME入力中の除外、自分以外の発言の早期リターン、設定OFF時の `MutationObserver` 切断動作を検証する単体テストの実装 (`tests/unit/chat.test.ts`)
 
 ### Implementation for User Story 2
-- [ ] T015 [P] [US2] チャット入力エリア (`textarea`) および送信ボタンのキー/クリックイベントをフックし、IME考慮 (`isComposing`）を行って自発言のトリガーワードを検知する `ChatObserver` の実装 (`src/content/observers/chat.observer.ts`)
-- [ ] T016 [P] [US2] チャットログコンテナの監視において、自分の発言を示すCSSクラス以外を早期リターンする最適化された `MutationObserver`（フォールバック用）の実装 (`src/content/observers/chat.observer.ts`)
-- [ ] T017 [US2] 設定同期 (`chrome.storage.sync`) から `enableChatObserver` の変更を監視し、ON/OFFトグルに応じて `ChatObserver` の監視開始・切断を制御するロジックの統合 (`src/content/index.ts`)
+- [x] T015 [P] [US2] チャット入力エリア (`textarea`) および送信ボタンのキー/クリックイベントをフックし、IME考慮 (`isComposing`）を行って自発言のトリガーワードを検知する `ChatObserver` の実装 (`src/content/observers/chat.observer.ts`)
+- [x] T016 [P] [US2] チャットログコンテナの監視において、自分の発言を示すCSSクラス以外を早期リターンする最適化された `MutationObserver`（フォールバック用）の実装 (`src/content/observers/chat.observer.ts`)
+- [x] T017 [US2] 設定同期 (`chrome.storage.sync`) から `enableChatObserver` の変更を監視し、ON/OFFトグルに応じて `ChatObserver` の監視開始・切断を制御するロジックの統合 (`src/content/index.ts`)
 
 **Checkpoint**: チャットトリガーによる保存機能が、ショートカット保存と並行して正しく機能することを確認。
 
@@ -91,13 +91,13 @@
 
 ### Tests for User Story 3 (MANDATORY) ⚠️
 > **※実装前にテストを作成し、テストが正しく失敗することを確認してください。**
-- [ ] T018 [P] [US3] `DocumentFragment` による高速DOM生成、項目削除時のストレージ更新、および遷移先URL正規表現パターンのセキュリティテストの実装 (`tests/unit/popup.test.ts`)
+- [x] T018 [P] [US3] `DocumentFragment` による高速DOM生成、項目削除時のストレージ更新、および遷移先URL正規表現パターンのセキュリティテストの実装 (`tests/unit/popup.test.ts`)
 
 ### Implementation for User Story 3
-- [ ] T019 [P] [US3] ポップアップ起動と同時に非同期でストレージ取得を開始し、`DocumentFragment` を用いて最新50件を構築・描画する Vanilla TS UI ロジックの実装 (`src/popup/index.ts`)
-- [ ] T020 [P] [US3] 設定データのロードおよびカスタムトリガーワードを追加・削除して `StorageManager` に同期保存する設定フォームUIの実装 (`src/popup/index.ts`)
-- [ ] T021 [US3] 安全なURL検証スキームを通した上で、クリックされたブックマークのVODページ（`?t=...`）を `chrome.tabs.create` で新規タブにて開く遷移ロジックの実装 (`src/popup/index.ts` - T006に依存)
-- [ ] T022 [US3] 任意のブックマークの削除ボタンをクリックした際、`StorageManager` でデータを消去しUIから項目を即時削除するロジックの実装 (`src/popup/index.ts` - T005に依存)
+- [x] T019 [P] [US3] ポップアップ起動と同時に非同期でストレージ取得を開始し、`DocumentFragment` を用いて最新50件を構築・描画する Vanilla TS UI ロジックの実装 (`src/popup/index.ts`)
+- [x] T020 [P] [US3] 設定データのロードおよびカスタムトリガーワードを追加・削除して `StorageManager` に同期保存する設定フォームUIの実装 (`src/popup/index.ts`)
+- [x] T021 [US3] 安全なURL検証スキームを通した上で、クリックされたブックマークのVODページ（`?t=...`）を `chrome.tabs.create` で新規タブにて開く遷移ロジックの実装 (`src/popup/index.ts` - T006に依存)
+- [x] T022 [US3] 任意のブックマークの削除ボタンをクリックした際、`StorageManager` でデータを消去しUIから項目を即時削除するロジックの実装 (`src/popup/index.ts` - T005に依存)
 
 **Checkpoint**: ポップアップ上での確認・遷移・設定がすべて問題なく機能することを確認。
 
@@ -107,10 +107,10 @@
 
 **Purpose**: 製品レベルの品質確保に向けた最終調整とドキュメント整備
 
-- [ ] T023 [P] 拡張機能アイコンのアセット配置と `manifest.json` のプロダクション用構成定義
-- [ ] T024 プロジェクト全体の動作確認（手動結合テスト、フルスクリーン時の挙動検証、エラーハンドリング確認）
-- [ ] T025 [P] 全テストコードの一斉実行およびパス確認 (`vitest run` による100%成功確認)
-- [ ] T026 インストール・セットアップ手順、手動テスト仕様、およびV1クイックスタートガイドのドキュメント記述
+- [x] T023 [P] 拡張機能アイコンのアセット配置と `manifest.json` のプロダクション用構成定義
+- [x] T024 プロジェクト全体の動作確認（手動結合テスト、フルスクリーン時の挙動検証、エラーハンドリング確認）
+- [x] T025 [P] 全テストコードの一斉実行およびパス確認 (`vitest run` による100%成功確認)
+- [x] T026 インストール・セットアップ手順、手動テスト仕様、およびV1クイックスタートガイドのドキュメント記述
 
 ---
 

@@ -1,9 +1,8 @@
 name: Build and Release Extension
 
 on:
-  push:
-    tags:
-      - 'v*' # v1.0.0 などのタグ付きプッシュ時のみ動作させて安全性を担保します
+  release:
+    types: [published]
 
 jobs:
   deploy:
@@ -28,17 +27,12 @@ jobs:
       - name: Zip Build Output
         run: |
           cd dist
-          zip -r ../clip-bookmark-${{ github.ref_name }}.zip *
+          zip -r ../clip-bookmark-${{ github.event.release.tag_name }}.zip *
           cd ..
 
-      - name: Create GitHub Release and Upload ZIP
+      - name: Upload ZIP to GitHub Release
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: ./clip-bookmark-${{ github.ref_name }}.zip
-          name: Release ${{ github.ref_name }}
-          generate_release_notes: true
-          draft: false
-          prerelease: false
+          files: ./clip-bookmark-${{ github.event.release.tag_name }}.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

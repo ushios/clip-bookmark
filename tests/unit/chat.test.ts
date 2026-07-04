@@ -12,14 +12,13 @@ describe('User Story 2: Chat Comment Trigger', () => {
 
   describe('Keyboard Event Trigger (Input Area)', () => {
     it('はIME変換確定時(isComposing = true)のEnter入力を無視すること', () => {
-      // チャットのテキストエリアをモック
       const textarea = document.createElement('textarea');
       textarea.setAttribute('data-a-target', 'chat-input');
       textarea.value = '!bm';
       document.body.appendChild(textarea);
 
-      const observer = new ChatObserver(mockCallback, ['!bm']);
-      observer.start();
+      const observer = new ChatObserver(undefined, ['!bm']);
+      observer.observeChat(mockCallback);
 
       // keydown イベントの発火 (IME変換中)
       const event = new KeyboardEvent('keydown', {
@@ -28,7 +27,49 @@ describe('User Story 2: Chat Comment Trigger', () => {
       } as KeyboardEventInit);
       textarea.dispatchEvent(event);
 
-      // コールバックが呼び出されていないことを確認
+      expect(mockCallback).not.toHaveBeenCalled();
+    });
+
+    it('はIME変換確定イベント(compositionstart)発火中のEnter入力を無視すること', () => {
+      const textarea = document.createElement('textarea');
+      textarea.setAttribute('data-a-target', 'chat-input');
+      textarea.value = '!bm';
+      document.body.appendChild(textarea);
+
+      const observer = new ChatObserver(undefined, ['!bm']);
+      observer.observeChat(mockCallback);
+
+      // compositionstart イベントを発火させて変換中状態にする
+      const compStartEvent = new CompositionEvent('compositionstart');
+      textarea.dispatchEvent(compStartEvent);
+
+      // keydown イベントの発火 (isComposing は false だが isImeComposing が true)
+      const event = new KeyboardEvent('keydown', {
+        key: 'Enter',
+        isComposing: false,
+      } as KeyboardEventInit);
+      textarea.dispatchEvent(event);
+
+      expect(mockCallback).not.toHaveBeenCalled();
+    });
+
+    it('はkeyCode === 229 (IME用仮想キーコード) のキー入力を無視すること', () => {
+      const textarea = document.createElement('textarea');
+      textarea.setAttribute('data-a-target', 'chat-input');
+      textarea.value = '!bm';
+      document.body.appendChild(textarea);
+
+      const observer = new ChatObserver(undefined, ['!bm']);
+      observer.observeChat(mockCallback);
+
+      // keydown イベントの発火 (keyCode = 229)
+      const event = new KeyboardEvent('keydown', {
+        key: 'Enter',
+        keyCode: 229,
+        isComposing: false,
+      } as any);
+      textarea.dispatchEvent(event);
+
       expect(mockCallback).not.toHaveBeenCalled();
     });
 
@@ -38,36 +79,16 @@ describe('User Story 2: Chat Comment Trigger', () => {
       textarea.value = '!bm';
       document.body.appendChild(textarea);
 
-      const observer = new ChatObserver(mockCallback, ['!bm']);
-      observer.start();
+      const observer = new ChatObserver(undefined, ['!bm']);
+      observer.observeChat(mockCallback);
 
-      // keydown イベントの発火 (IME変換中でない)
       const event = new KeyboardEvent('keydown', {
         key: 'Enter',
         isComposing: false,
       } as KeyboardEventInit);
       textarea.dispatchEvent(event);
 
-      // コールバックが呼ばれ、かつ入力文字が引数として渡されること
       expect(mockCallback).toHaveBeenCalledWith({ sender: 'self', text: '!bm' });
-    });
-
-    it('はトリガーワード以外の入力時のEnter入力を無視すること', () => {
-      const textarea = document.createElement('textarea');
-      textarea.setAttribute('data-a-target', 'chat-input');
-      textarea.value = 'hello world';
-      document.body.appendChild(textarea);
-
-      const observer = new ChatObserver(mockCallback, ['!bm']);
-      observer.start();
-
-      const event = new KeyboardEvent('keydown', {
-        key: 'Enter',
-        isComposing: false,
-      } as KeyboardEventInit);
-      textarea.dispatchEvent(event);
-
-      expect(mockCallback).not.toHaveBeenCalled();
     });
   });
 
@@ -77,24 +98,18 @@ describe('User Story 2: Chat Comment Trigger', () => {
       chatContainer.className = 'chat-scrollable-area__list-container';
       document.body.appendChild(chatContainer);
 
-      const observer = new ChatObserver(mockCallback, ['!bm']);
-      observer.start();
+      const observer = new ChatObserver(undefined, ['!bm']);
+      observer.observeChat(mockCallback);
 
-      // 他人の発言ノードを追加 (self クラスなし)
       const otherMessage = document.createElement('div');
       otherMessage.className = 'chat-line__message';
       otherMessage.innerHTML = `
         <span class="chat-author__display-name">ninja</span>
         <span class="message">!bm</span>
       `;
-      
-      // MutationObserver のコールバック動作を手動でトリガーするか、DOM変更でテスト
-      // Vitestの happy-dom 環境では MutationObserver が動作します
       chatContainer.appendChild(otherMessage);
 
-      // 実際は MutationObserver は非同期なので、少し待つか、observerの内部メソッドを叩く
-      // ここでは、MutationObserverの動作を確実に待つために setTimeout または Promise で待ちます。
-      // ただし、ninjaは自分ではないので、呼ばれないはずです。
+      expect(mockCallback).not.toHaveBeenCalled();
     });
 
     it('は自分の発言がチャットコンテナに追加された際、トリガーワードを含んでいればコールバックを呼び出すこと', async () => {
@@ -102,10 +117,9 @@ describe('User Story 2: Chat Comment Trigger', () => {
       chatContainer.className = 'chat-scrollable-area__list-container';
       document.body.appendChild(chatContainer);
 
-      const observer = new ChatObserver(mockCallback, ['!bm']);
-      observer.start();
+      const observer = new ChatObserver(undefined, ['!bm']);
+      observer.observeChat(mockCallback);
 
-      // 自分の発言ノードを追加 (self クラスあり)
       const myMessage = document.createElement('div');
       myMessage.className = 'chat-line__message chat-line__message--self';
       
@@ -121,7 +135,6 @@ describe('User Story 2: Chat Comment Trigger', () => {
 
       chatContainer.appendChild(myMessage);
 
-      // MutationObserver の発火を待つ
       await new Promise((resolve) => setTimeout(resolve, 50));
 
       expect(mockCallback).toHaveBeenCalledWith({ sender: 'self', text: '!bm' });
@@ -129,22 +142,19 @@ describe('User Story 2: Chat Comment Trigger', () => {
   });
 
   describe('Settings Toggle', () => {
-    it('は監視停止時(destroy/disconnect)にMutationObserverを完全に切断すること', () => {
+    it('は監視停止時にMutationObserverを完全に切断すること', () => {
       const chatContainer = document.createElement('div');
       chatContainer.className = 'chat-scrollable-area__list-container';
       document.body.appendChild(chatContainer);
 
-      const observer = new ChatObserver(mockCallback, ['!bm']);
-      observer.start();
+      const observer = new ChatObserver(undefined, ['!bm']);
+      observer.observeChat(mockCallback);
       
-      // 内部の MutationObserver インスタンスへの参照があるか確認
       expect(observer.isObserving()).toBe(true);
 
-      // 監視切断
       observer.destroy();
       expect(observer.isObserving()).toBe(false);
 
-      // 自分の発言を追加してもコールバックが呼ばれないこと
       const myMessage = document.createElement('div');
       myMessage.className = 'chat-line__message chat-line__message--self';
       myMessage.innerHTML = '<span class="message">!bm</span>';

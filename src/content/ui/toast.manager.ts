@@ -1,29 +1,35 @@
-import { IToastManager } from '../observers/command.observer';
 import { formatSecondsToTimeString } from '../../common/utils/time';
-import { Bookmark } from '../../common/models/bookmark.model';
+
+/**
+ * トースト通知管理用のインターフェース
+ */
+export interface IToastManager {
+  showSaving(): void;
+  showError(message: string): void;
+  showSuccess(relativeTime: number): void;
+}
 
 /**
  * Twitchプレイヤー上に Shadow DOM を用いて最前面に安全なトースト通知を描画・管理するクラス
+ * ゴーストトースト防止のため、ストレージ監視を排し、直接API呼び出しで描画制御を行います。
  */
 export class ToastManager implements IToastManager {
   private hostElement: HTMLDivElement | null = null;
   private autoCloseTimeout: NodeJS.Timeout | null = null;
-  private readonly handleStorageChangedBound = this.handleStorageChanged.bind(this);
 
   constructor() {}
 
   /**
-   * 監視と初期化を開始する
+   * 初期設定（将来の拡張用。現在はダミー処理）
    */
   public start(): void {
-    chrome.storage.onChanged.addListener(this.handleStorageChangedBound);
+    // 処理なし（ゴーストトースト対策でストレージ監視を廃止）
   }
 
   /**
-   * 監視を停止し、マウントされた要素があれば破棄する
+   * マウントされた要素があれば破棄する
    */
   public destroy(): void {
-    chrome.storage.onChanged.removeListener(this.handleStorageChangedBound);
     this.removeToast();
   }
 
@@ -50,26 +56,6 @@ export class ToastManager implements IToastManager {
   }
 
   /**
-   * ストレージの変更（ブックマークの新規追加）を検知してトーストを「完了」に更新する
-   */
-  private handleStorageChanged(
-    changes: { [key: string]: chrome.storage.StorageChange },
-    areaName: string,
-  ): void {
-    if (areaName === 'local' && changes.bookmarks) {
-      const oldVal = (changes.bookmarks.oldValue || []) as Bookmark[];
-      const newVal = (changes.bookmarks.newValue || []) as Bookmark[];
-
-      // 新しく追加されたブックマークを特定（通常、配列の末尾）
-      if (newVal.length > oldVal.length) {
-        const addedBookmark = newVal[newVal.length - 1];
-        // 取得したブックマーク情報で「保存完了」を表示
-        this.showSuccess(addedBookmark.relativeTime);
-      }
-    }
-  }
-
-  /**
    * トースト要素をDOM（Shadow DOM）に構築して描画する
    */
   private renderToast(message: string, type: 'saving' | 'success' | 'error'): void {
@@ -85,7 +71,6 @@ export class ToastManager implements IToastManager {
     if (!this.hostElement) {
       this.hostElement = document.createElement('div');
       this.hostElement.className = 'twitch-bookmark-toast-host';
-      // 親コンテナに対して絶対配置するためにスタイルを適用 (親要素は relative であることを期待)
       this.hostElement.style.position = 'absolute';
       this.hostElement.style.top = '20px';
       this.hostElement.style.right = '20px';
@@ -189,7 +174,6 @@ export class ToastManager implements IToastManager {
     if (type !== 'saving') {
       this.autoCloseTimeout = setTimeout(() => {
         toastContainer.classList.remove('show');
-        // アニメーション完了後に要素を破棄
         setTimeout(() => this.removeToast(), 200);
       }, 3000);
     }

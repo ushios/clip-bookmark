@@ -63,11 +63,13 @@ describe('Security Utilities', () => {
     it('は正しいTwitch VOD URLを許可すること', () => {
       expect(validateVideoUrl('https://www.twitch.tv/videos/123456789')).toBe(true);
       expect(validateVideoUrl('https://twitch.tv/videos/123456789?t=1h23m45s')).toBe(true);
+      expect(validateVideoUrl('https://www.twitch.tv/videos/123456789?t=1h23m45s&ref=something')).toBe(true);
     });
 
     it('は正しいTwitch ライブ配信URLを許可すること', () => {
       expect(validateVideoUrl('https://www.twitch.tv/ninja')).toBe(true);
       expect(validateVideoUrl('https://twitch.tv/ninja')).toBe(true);
+      expect(validateVideoUrl('https://twitch.tv/ninja?sr=some_ref#settings')).toBe(true);
     });
 
     it('はTwitch以外のURLを拒否すること', () => {

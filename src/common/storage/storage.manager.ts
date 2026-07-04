@@ -4,7 +4,7 @@ import { Settings } from '../models/settings.model';
 /**
  * 拡張機能のデータを一元管理するストレージマネージャー（シングルトン）
  * chrome.storage.local (ブックマーク用) と chrome.storage.sync (設定用) をラップし、
- * FIFOローテーションなどのビジネスロジックを提供します。
+ * FIFOローテーションおよび非同期シリアライズキューによるRace Condition防止を提供します。
  */
 export class StorageManager {
   private static instance: StorageManager | null = null;
@@ -13,6 +13,9 @@ export class StorageManager {
     triggerWords: ['!bm'],
     enableChatObserver: true,
   };
+
+  // Race Condition (Lost Update) 防止のための非同期シリアライズキュー
+  private writeQueue: Promise<any> = Promise.resolve();
 
   private constructor() {}
 
@@ -27,40 +30,79 @@ export class StorageManager {
   }
 
   /**
-   * すべてのブックマークを取得
+   * 書き込みタスクを直列キューに追加して実行する (Race Condition 防止)
    */
-  public async getBookmarks(): Promise<Bookmark[]> {
-    return new Promise((resolve) => {
-      chrome.storage.local.get(['bookmarks'], (result) => {
-        resolve(result.bookmarks || []);
+  private async enqueue<T>(task: () => Promise<T>): Promise<T> {
+    const nextPromise = this.writeQueue.then(task);
+    // キューのPromiseチェーンを更新（エラーが起きても後続のタスクを実行できるようにcatchを追加）
+    this.writeQueue = nextPromise.catch(() => {}).then(() => {});
+    return nextPromise;
+  }
+
+  /**
+   * Chrome Storageからデータを取得するジェネリックヘルパー (lastError監視付き)
+   */
+  private async getStorage<T>(area: 'local' | 'sync', keys: string[]): Promise<Record<string, T>> {
+    return new Promise((resolve, reject) => {
+      chrome.storage[area].get(keys, (result) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+        } else {
+          resolve(result as Record<string, T>);
+        }
       });
     });
   }
 
   /**
-   * ブックマークを保存（1,000件のFIFOローテーション機能付き）
+   * Chrome Storageにデータを書き込むジェネリックヘルパー (lastError監視付き)
+   */
+  private async setStorage<T>(area: 'local' | 'sync', data: Record<string, T>): Promise<void> {
+    return new Promise((resolve, reject) => {
+      chrome.storage[area].set(data, () => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+        } else {
+          resolve();
+        }
+      });
+    });
+  }
+
+  /**
+   * すべてのブックマークを取得
+   */
+  public async getBookmarks(): Promise<Bookmark[]> {
+    try {
+      const result = await this.getStorage<Bookmark[]>('local', ['bookmarks']);
+      return result.bookmarks || [];
+    } catch (error) {
+      console.error('Failed to get bookmarks:', error);
+      return [];
+    }
+  }
+
+  /**
+   * ブックマークを保存（1,000件のFIFOローテーションおよびRace Condition防止機能付き）
    */
   public async saveBookmark(bookmark: Bookmark): Promise<void> {
-    const bookmarks = await this.getBookmarks();
-    
-    // 重複保存を防ぐため、同一IDが既に存在する場合は更新、そうでない場合は追加
-    const existingIndex = bookmarks.findIndex((b) => b.id === bookmark.id);
-    if (existingIndex !== -1) {
-      bookmarks[existingIndex] = bookmark;
-    } else {
-      bookmarks.push(bookmark);
-    }
+    return this.enqueue(async () => {
+      const bookmarks = await this.getBookmarks();
+      
+      // 重複保存を防ぐため、同一IDが既に存在する場合は更新、そうでない場合は追加
+      const existingIndex = bookmarks.findIndex((b) => b.id === bookmark.id);
+      if (existingIndex !== -1) {
+        bookmarks[existingIndex] = bookmark;
+      } else {
+        bookmarks.push(bookmark);
+      }
 
-    // IDまたはタイムスタンプ順にソート（必要に応じて。基本は追加順）
-    // 保存件数が最大数を超えた場合、古いもの（配列の先頭）から削除 (FIFO)
-    while (bookmarks.length > this.MAX_BOOKMARKS) {
-      bookmarks.shift();
-    }
+      // 保存件数が最大数を超えた場合、古いもの（配列の先頭）から削除 (FIFO)
+      while (bookmarks.length > this.MAX_BOOKMARKS) {
+        bookmarks.shift();
+      }
 
-    return new Promise((resolve) => {
-      chrome.storage.local.set({ bookmarks }, () => {
-        resolve();
-      });
+      await this.setStorage('local', { bookmarks });
     });
   }
 
@@ -68,13 +110,10 @@ export class StorageManager {
    * 指定したIDのブックマークを削除
    */
   public async deleteBookmark(id: string): Promise<void> {
-    const bookmarks = await this.getBookmarks();
-    const filtered = bookmarks.filter((b) => b.id !== id);
-
-    return new Promise((resolve) => {
-      chrome.storage.local.set({ bookmarks: filtered }, () => {
-        resolve();
-      });
+    return this.enqueue(async () => {
+      const bookmarks = await this.getBookmarks();
+      const filtered = bookmarks.filter((b) => b.id !== id);
+      await this.setStorage('local', { bookmarks: filtered });
     });
   }
 
@@ -82,10 +121,8 @@ export class StorageManager {
    * すべてのブックマークをクリア
    */
   public async clearAllBookmarks(): Promise<void> {
-    return new Promise((resolve) => {
-      chrome.storage.local.set({ bookmarks: [] }, () => {
-        resolve();
-      });
+    return this.enqueue(async () => {
+      await this.setStorage('local', { bookmarks: [] });
     });
   }
 
@@ -93,29 +130,28 @@ export class StorageManager {
    * 設定を取得（保存されていない場合はデフォルト値を返却）
    */
   public async getSettings(): Promise<Settings> {
-    return new Promise((resolve) => {
-      chrome.storage.sync.get(['settings'], (result) => {
-        if (!result.settings) {
-          resolve(this.DEFAULT_SETTINGS);
-        } else {
-          // デフォルト値とのマージを行い、欠落キーをカバー
-          resolve({
-            ...this.DEFAULT_SETTINGS,
-            ...result.settings,
-          });
-        }
-      });
-    });
+    try {
+      const result = await this.getStorage<Settings>('sync', ['settings']);
+      if (!result.settings) {
+        return this.DEFAULT_SETTINGS;
+      }
+      // デフォルト値とのマージを行い、欠落キーをカバー
+      return {
+        ...this.DEFAULT_SETTINGS,
+        ...result.settings,
+      };
+    } catch (error) {
+      console.error('Failed to get settings:', error);
+      return this.DEFAULT_SETTINGS;
+    }
   }
 
   /**
    * 設定を保存
    */
   public async saveSettings(settings: Settings): Promise<void> {
-    return new Promise((resolve) => {
-      chrome.storage.sync.set({ settings }, () => {
-        resolve();
-      });
+    return this.enqueue(async () => {
+      await this.setStorage('sync', { settings });
     });
   }
 }

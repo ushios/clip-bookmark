@@ -19,6 +19,8 @@ const storageManager = StorageManager.getInstance();
 
 /**
  * ブックマーク保存の共通処理（チャット検知・コマンド検知の両方から呼び出されます）
+ * ゴーストトースト防止のため、メッセージ送信完了のレスポンス（Request-Response）を待って、
+ * このアクティブタブのトースト通知のみを「保存完了」に更新します。
  */
 async function triggerBookmarkSave(): Promise<void> {
   if (!twitchAdapter || !toastManager) return;
@@ -36,25 +38,41 @@ async function triggerBookmarkSave(): Promise<void> {
       twitchAdapter.isLive(),
     ]);
 
-    // 3. Service Worker に保存を要求
-    await chrome.runtime.sendMessage({
-      action: MESSAGE_ACTIONS.SAVE_BOOKMARK,
-      payload: {
-        id: Date.now().toString(),
-        platform: 'twitch',
-        channelName,
-        title,
-        videoUrl,
-        timestamp: new Date().toISOString(),
-        relativeTime,
-        isLive,
+    // 3. Service Worker に保存を要求し、成否レスポンスを待つ
+    chrome.runtime.sendMessage(
+      {
+        action: MESSAGE_ACTIONS.SAVE_BOOKMARK,
+        payload: {
+          id: Date.now().toString(),
+          platform: 'twitch',
+          channelName,
+          title,
+          videoUrl,
+          timestamp: new Date().toISOString(),
+          relativeTime,
+          isLive,
+        },
       },
-    });
+      (response) => {
+        // レスポンスの検証（chrome.runtime.lastErrorのチェックも含む）
+        if (chrome.runtime.lastError) {
+          console.error('SendMessage error:', chrome.runtime.lastError.message);
+          toastManager?.showError('保存要求の送信に失敗しました');
+          return;
+        }
+
+        if (response && response.success) {
+          // 保存に成功した時のみ、このタブで「保存完了」を表示
+          toastManager?.showSuccess(relativeTime);
+        } else {
+          const errorMsg = response?.error || '保存に失敗しました';
+          toastManager?.showError(errorMsg);
+        }
+      },
+    );
   } catch (error) {
     console.error('Failed to auto-save bookmark:', error);
-    if (toastManager) {
-      toastManager.showError('保存に失敗しました');
-    }
+    toastManager.showError('保存に失敗しました');
   }
 }
 
@@ -70,12 +88,9 @@ function updateChatObserver(settings: Settings): void {
 
   // 設定でチャット監視が有効な場合のみ、新規作成して起動 (CPU負荷の最適化)
   if (settings.enableChatObserver) {
-    chatObserver = new ChatObserver(
-      // コールバック関数として共通の保存処理を指定
-      () => triggerBookmarkSave(),
-      settings.triggerWords,
-    );
-    chatObserver.start();
+    // コンストラクタでコールバックを渡さず、observeChat(callback) を使用する新設計に対応
+    chatObserver = new ChatObserver(undefined, settings.triggerWords);
+    chatObserver.observeChat(() => triggerBookmarkSave());
   }
 }
 
@@ -91,9 +106,8 @@ async function initialize(): Promise<void> {
   toastManager = new ToastManager();
   toastManager.start();
 
-  // コマンドオブザーバーの起動 (キーボードショートカット Alt+Shift+B 用)
-  // toastManager を直接渡して楽観的表示やエラー表示を行わせる
-  commandObserver = new CommandObserver(twitchAdapter, toastManager);
+  // コマンドオブザーバーの起動。コールバックとして triggerBookmarkSave を渡す（関心分離）
+  commandObserver = new CommandObserver(() => triggerBookmarkSave());
   commandObserver.start();
 
   // 同期ストレージから設定を取得し、チャット監視を構成
@@ -118,7 +132,7 @@ if (document.readyState === 'loading') {
   initialize();
 }
 
-// リソース解放イベントのハンドリング (拡張機能がアップデートまたは無効化された際の後始末)
+// リソース解放イベントのハンドリング
 window.addEventListener('unload', () => {
   if (twitchAdapter) twitchAdapter.destroy();
   if (toastManager) toastManager.destroy();

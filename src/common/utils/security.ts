@@ -49,11 +49,8 @@ export function validateVideoUrl(url: string): boolean {
     return false;
   }
 
-  // Twitchの配信またはVODの正規表現パターン
-  // - https://www.twitch.tv/videos/123456
-  // - https://twitch.tv/channel_name
-  // - パラメータ ?t=... も許容
-  const twitchUrlPattern = /^https:\/\/(?:[a-z0-9-]+\.)?twitch\.tv\/(?:videos\/\d+|\w+)(?:\?t=[0-9a-zA-Z_]+)?$/i;
+  // Twitchの配信またはVODの正規表現パターン (クエリパラメータやハッシュも含めて許容)
+  const twitchUrlPattern = /^https:\/\/(?:[a-z0-9-]+\.)?twitch\.tv\/(?:videos\/\d+|[a-zA-Z0-9_]+)(?:\?.*)?(?:#.*)?$/i;
   
   return twitchUrlPattern.test(url);
 }

@@ -2,20 +2,40 @@ import { ChatCallback, ChatObservable } from '../platforms/adapter.interface';
 
 /**
  * Twitchチャットの自発言およびトリガーキーワードを監視するクラス
+ * IME（日本語入力）の二重送信バグ対策を強化し、低負荷な MutationObserver 設計を採用しています。
  */
 export class ChatObserver implements ChatObservable {
   private observing = false;
   private chatMutationObserver: MutationObserver | null = null;
   private lastTriggerTime = 0; // 重複打刻防止用のタイムスタンプ
   private readonly TRIGGER_COOLDOWN_MS = 1500; // 連続打刻防止のクールダウン時間
+  private callback?: ChatCallback;
 
-  // キーボードイベントハンドラのバインド保持用
+  // IME（日本語入力変換）状態の厳密な監視フラグ
+  private isImeComposing = false;
+
+  // 各種イベントハンドラのバインド保持用
   private readonly handleKeyDownBound = this.handleKeyDown.bind(this);
+  private readonly handleCompositionStartBound = this.handleCompositionStart.bind(this);
+  private readonly handleCompositionEndBound = this.handleCompositionEnd.bind(this);
 
   constructor(
-    private readonly callback: ChatCallback,
+    callback: ChatCallback | undefined, // テスト・直接起動の双方の互換性のためオプショナルにする
     private readonly triggerWords: string[],
-  ) {}
+  ) {
+    if (callback) {
+      this.callback = callback;
+    }
+  }
+
+  /**
+   * 監視インターフェース (ChatObservable) の observeChat 実装
+   * 引数のコールバックを正しくバインドして監視を開始します。
+   */
+  public observeChat(callback: ChatCallback): void {
+    this.callback = callback;
+    this.start();
+  }
 
   /**
    * チャット入力エリアおよびログコンテナの監視を開始する
@@ -24,7 +44,7 @@ export class ChatObserver implements ChatObservable {
     if (this.observing) return;
     this.observing = true;
 
-    // 1. チャット入力エリア (textarea) のキーボードイベント監視を設定
+    // 1. チャット入力エリア (textarea) のキーボード・IMEイベント監視を設定
     this.setupInputListener();
 
     // 2. チャットログコンテナの MutationObserver 監視を設定
@@ -42,6 +62,8 @@ export class ChatObserver implements ChatObservable {
     const textarea = this.getInputElement();
     if (textarea) {
       textarea.removeEventListener('keydown', this.handleKeyDownBound);
+      textarea.removeEventListener('compositionstart', this.handleCompositionStartBound);
+      textarea.removeEventListener('compositionend', this.handleCompositionEndBound);
     }
 
     // MutationObserver の切断 (CPU負荷を 0% に抑える)
@@ -70,23 +92,42 @@ export class ChatObserver implements ChatObservable {
   }
 
   /**
-   * キーボードイベントの登録を行う
+   * キーボードおよびIMEイベントの登録を行う
    */
   private setupInputListener(): void {
     const textarea = this.getInputElement();
     if (textarea) {
       // 重複登録防止のため、一旦削除してから追加
       textarea.removeEventListener('keydown', this.handleKeyDownBound);
+      textarea.removeEventListener('compositionstart', this.handleCompositionStartBound);
+      textarea.removeEventListener('compositionend', this.handleCompositionEndBound);
+
       textarea.addEventListener('keydown', this.handleKeyDownBound);
+      textarea.addEventListener('compositionstart', this.handleCompositionStartBound);
+      textarea.addEventListener('compositionend', this.handleCompositionEndBound);
     }
   }
 
   /**
-   * キーボードの入力をハンドリングする（IME考慮、トリガーワード検知）
+   * IME入力開始イベントハンドラ
+   */
+  private handleCompositionStart(): void {
+    this.isImeComposing = true;
+  }
+
+  /**
+   * IME入力確定イベントハンドラ
+   */
+  private handleCompositionEnd(): void {
+    this.isImeComposing = false;
+  }
+
+  /**
+   * キーボードの入力をハンドリングする（IME二重防止強化、トリガーワード検知）
    */
   private handleKeyDown(event: KeyboardEvent): void {
-    // 1. IME日本語変換中のEnter入力は無視する (XSS/誤動作防止)
-    if (event.isComposing) {
+    // 1. IME日本語変換中のEnter入力およびkeyCode=229は完全に無視する (誤保存の徹底防止)
+    if (event.isComposing || this.isImeComposing || event.keyCode === 229) {
       return;
     }
 
@@ -104,14 +145,11 @@ export class ChatObserver implements ChatObservable {
    * チャットログ追加を監視する MutationObserver のセットアップ
    */
   private setupMutationObserver(): void {
-    // Twitchのチャットログリストのコンテナセレクター
     const chatContainer =
       document.querySelector('.chat-scrollable-area__list-container') ||
       document.querySelector('[data-a-target="chat-welcome-message"]')?.parentElement;
 
     if (!chatContainer) {
-      // チャット欄がまだロードされていない場合は、親要素などの監視からリトライするフォールバックも考慮するが、
-      // 基本はDOMポーリング等で行う。ここでは MutationObserver でドキュメント全体からチャット欄出現を監視
       this.observeBodyForChatContainer();
       return;
     }
@@ -126,7 +164,7 @@ export class ChatObserver implements ChatObservable {
             const isSelf =
               element.classList.contains('chat-line__message--self') ||
               element.querySelector('.chat-line__message--self') ||
-              element.getAttribute('data-a-user') === 'me'; // テストやカスタム用属性
+              element.getAttribute('data-a-user') === 'me';
             
             if (!isSelf) {
               continue;
@@ -160,7 +198,7 @@ export class ChatObserver implements ChatObservable {
       const chatContainer = document.querySelector('.chat-scrollable-area__list-container');
       if (chatContainer) {
         this.setupMutationObserver();
-        observerInstance.disconnect(); // ボディの監視は終了
+        observerInstance.disconnect();
       }
     });
 
@@ -175,7 +213,6 @@ export class ChatObserver implements ChatObservable {
    */
   private isTriggerWord(text: string): boolean {
     if (!text) return false;
-    // 大文字小文字を区別せず比較
     const lowerText = text.toLowerCase();
     return this.triggerWords.some((word) => word.toLowerCase() === lowerText);
   }
@@ -184,18 +221,12 @@ export class ChatObserver implements ChatObservable {
    * 重複防止クールダウン制御を挟んでコールバックを実行する
    */
   private triggerCallback(text: string): void {
+    if (!this.callback) return;
+
     const now = Date.now();
     if (now - this.lastTriggerTime >= this.TRIGGER_COOLDOWN_MS) {
       this.lastTriggerTime = now;
       this.callback({ sender: 'self', text });
     }
-  }
-
-  /**
-   * 監視インターフェース (ChatObservable) の observeChat 実装
-   */
-  public observeChat(callback: ChatCallback): void {
-    // 既存の start メソッドを呼び出す
-    this.start();
   }
 }

@@ -12,8 +12,10 @@ describe('User Story 3: Popup UI & Settings', () => {
     // DOMを模擬リセット
     document.body.innerHTML = `
       <div id="app">
-        <!-- ブックマークリスト -->
-        <ul id="bookmark-list"></ul>
+        <!-- ブックマークリスト（無限スクロール用コンテナ含む） -->
+        <div class="list-wrapper" style="height: 300px; overflow-y: scroll;">
+          <ul id="bookmark-list"></ul>
+        </div>
         <div id="no-bookmarks" class="hidden">履歴がありません</div>
         
         <!-- 設定フォーム -->
@@ -63,23 +65,17 @@ describe('User Story 3: Popup UI & Settings', () => {
   });
 
   it('は起動時にブックマーク履歴と設定を読み込み、UIに描画すること', async () => {
-    // ポップアップ初期化を実行
     await initPopup();
-
-    // 読み込み完了を少し待つ
     await new Promise((resolve) => setTimeout(resolve, 50));
 
-    // ブックマークリストのチェック
     const list = document.getElementById('bookmark-list');
     expect(list?.children.length).toBe(2);
     
-    // XSS対策：textContent を介して値が入っていること
     expect(list?.innerHTML).not.toContain('<script>');
     expect(list?.textContent).toContain('streamer_a');
     expect(list?.textContent).toContain('01:01:40');
     expect(list?.textContent).toContain('VOD Title A');
 
-    // 設定フォームのチェック
     const toggle = document.getElementById('chat-observer-toggle') as HTMLInputElement;
     expect(toggle.checked).toBe(true);
 
@@ -88,7 +84,7 @@ describe('User Story 3: Popup UI & Settings', () => {
     expect(triggerList?.textContent).toContain('!bm');
   });
 
-  it('は項目をクリックした際、安全なURL検証を行い、タイムスタンプ付きURLで新規タブを開くこと', async () => {
+  it('は項目をクリックした際、安全なURL遷移を行うこと', async () => {
     await initPopup();
     await new Promise((resolve) => setTimeout(resolve, 50));
 
@@ -96,11 +92,8 @@ describe('User Story 3: Popup UI & Settings', () => {
     const firstItemLink = list?.querySelector('.bookmark-link') as HTMLElement;
     expect(firstItemLink).not.toBeNull();
 
-    // クリックイベントを発火
     firstItemLink.click();
 
-    // VOD(id: 1) の 3700秒 (1h01m40s) で chrome.tabs.create が呼ばれること
-    // Twitch のタイムスタンプクエリは ?t=1h1m40s または秒数 ?t=3700s 等
     expect(chrome.tabs.create).toHaveBeenCalledWith({
       url: 'https://twitch.tv/videos/12345?t=1h01m40s',
     });
@@ -115,13 +108,9 @@ describe('User Story 3: Popup UI & Settings', () => {
     const deleteBtn = firstItem.querySelector('.delete-btn') as HTMLElement;
     expect(deleteBtn).not.toBeNull();
 
-    // 削除をクリック
     deleteBtn.click();
 
-    // StorageManager が削除メソッドを呼んだこと
     expect(StorageManager.prototype.deleteBookmark).toHaveBeenCalledWith('1');
-
-    // DOMから即座に消去されていること (最新件数が 1 になる)
     expect(list?.children.length).toBe(1);
     expect(list?.textContent).not.toContain('VOD Title A');
   });
@@ -136,18 +125,100 @@ describe('User Story 3: Popup UI & Settings', () => {
     input.value = 'ここ！';
     addBtn.click();
 
-    // 非同期の保存処理を待つ
     await new Promise((resolve) => setTimeout(resolve, 50));
 
-    // StorageManager の saveSettings が新設定で呼ばれていること
     expect(StorageManager.prototype.saveSettings).toHaveBeenCalledWith(
       expect.objectContaining({
         triggerWords: ['!bm', '!bookmark', 'ここ！'],
       }),
     );
 
-    // リストが更新されていること
     const triggerList = document.getElementById('trigger-words-list');
     expect(triggerList?.textContent).toContain('ここ！');
+  });
+
+  it('はスクロール時に無限スクロールにより次の50件を読み込むこと', async () => {
+    // 70件のブックマークを作成してモック
+    const largeBookmarks: Bookmark[] = [];
+    for (let i = 1; i <= 70; i++) {
+      largeBookmarks.push({
+        id: `${i}`,
+        platform: 'twitch',
+        channelName: 'streamer_a',
+        title: `VOD Title ${i}`,
+        videoUrl: 'https://twitch.tv/videos/12345',
+        timestamp: new Date().toISOString(),
+        relativeTime: i * 10,
+        isLive: false,
+      });
+    }
+    vi.spyOn(StorageManager.prototype, 'getBookmarks').mockResolvedValue(largeBookmarks);
+
+    await initPopup();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const list = document.getElementById('bookmark-list');
+    // 初期描画は上限 50 件
+    expect(list?.children.length).toBe(50);
+
+    const listWrapper = document.querySelector('.list-wrapper') as HTMLElement;
+    // スクロール状態をシミュレート (最下部に達した状態)
+    Object.defineProperty(listWrapper, 'scrollTop', { value: 200, configurable: true });
+    Object.defineProperty(listWrapper, 'scrollHeight', { value: 500, configurable: true });
+    Object.defineProperty(listWrapper, 'clientHeight', { value: 300, configurable: true });
+    // 500 - 200 - 300 = 0 < 20 (最下部条件クリア)
+
+    // スクロールイベントを発火
+    const scrollEvent = new Event('scroll');
+    listWrapper.dispatchEvent(scrollEvent);
+
+    // 次の20件が追加で描画され、合計70件になること
+    expect(list?.children.length).toBe(70);
+  });
+
+  it('はchrome.storage.onChangedイベントによりリアルタイム同期すること', async () => {
+    // storage.onChangedのリスナー登録をキャプチャ
+    let storageListener: Function | null = null;
+    vi.mocked(chrome.storage.onChanged.addListener).mockImplementation((listener) => {
+      storageListener = listener;
+    });
+
+    await initPopup();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    expect(storageListener).not.toBeNull();
+
+    const list = document.getElementById('bookmark-list');
+    expect(list?.children.length).toBe(2);
+
+    // ストレージで3件目のブックマークが追加されたことをシミュレート
+    const updatedBookmarks = [
+      ...mockBookmarks,
+      {
+        id: '3',
+        platform: 'twitch',
+        channelName: 'streamer_c',
+        title: 'Title C',
+        videoUrl: 'https://twitch.tv/videos/9999',
+        timestamp: new Date().toISOString(),
+        relativeTime: 200,
+        isLive: false,
+      },
+    ];
+
+    if (storageListener) {
+      storageListener(
+        {
+          bookmarks: {
+            newValue: updatedBookmarks,
+          },
+        },
+        'local',
+      );
+    }
+
+    // 自動で再描画が走り、3件のブックマークがリストに並ぶこと
+    expect(list?.children.length).toBe(3);
+    expect(list?.textContent).toContain('streamer_c');
   });
 });

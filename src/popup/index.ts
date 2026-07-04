@@ -6,10 +6,13 @@ import { validateVideoUrl, sanitizeString } from '../common/utils/security';
 
 /**
  * ポップアップUIの各種イベントハンドリングおよび描画を制御するモジュール
+ * 無限スクロール、および別タブ/打刻による変更のリアルタイム同期に対応しています。
  */
 
 const storageManager = StorageManager.getInstance();
 let currentSettings: Settings | null = null;
+let allBookmarks: Bookmark[] = []; // 全ブックマークのメモリ内キャッシュ
+const PAGE_SIZE = 50;
 
 /**
  * 秒数をTwitchのタイムスタンプパラメータ形式 (XhYmZs) に変換する
@@ -21,7 +24,6 @@ function toTwitchTimestamp(seconds: number): string {
 
   const pad = (num: number) => String(num).padStart(2, '0');
 
-  // 時間が 0 の場合も一貫して XhYmZs の形式で出力
   return `${hours}h${pad(minutes)}m${pad(secs)}s`;
 }
 
@@ -31,14 +33,12 @@ function toTwitchTimestamp(seconds: number): string {
 function navigateToBookmark(bookmark: Bookmark): void {
   let targetUrl = bookmark.videoUrl;
 
-  // VOD（アーカイブ動画）の場合はタイムスタンプを付与
   if (bookmark.videoUrl.includes('/videos/') && bookmark.relativeTime >= 0) {
     const timestampParam = `t=${toTwitchTimestamp(bookmark.relativeTime)}`;
     const separator = bookmark.videoUrl.includes('?') ? '&' : '?';
     targetUrl = `${bookmark.videoUrl}${separator}${timestampParam}`;
   }
 
-  // セキュリティ: URLがTwitchのもの且つ安全な形式か検証
   if (validateVideoUrl(targetUrl)) {
     chrome.tabs.create({ url: targetUrl });
   } else {
@@ -48,30 +48,39 @@ function navigateToBookmark(bookmark: Bookmark): void {
 }
 
 /**
- * 履歴リストの描画処理（DocumentFragment による高速描画）
+ * 履歴リストの描画処理（DocumentFragment による高速描画 ＆ 無限スクロール対応）
+ * @param bookmarks 対象のブックマーク配列
+ * @param append true の場合は末尾に追加描画、false の場合は全体をリセットして描画
  */
-function renderBookmarkList(bookmarks: Bookmark[]): void {
+function renderBookmarkList(bookmarks: Bookmark[], append = false): void {
   const listElement = document.getElementById('bookmark-list');
   const emptyElement = document.getElementById('no-bookmarks');
   if (!listElement || !emptyElement) return;
 
-  listElement.innerHTML = '';
+  if (!append) {
+    listElement.innerHTML = '';
+  }
 
-  // 最新順にソートし、最大50件に制限
-  const displayList = [...bookmarks]
-    .sort((a, b) => {
-      const timeA = new Date(a.timestamp).getTime();
-      const timeB = new Date(b.timestamp).getTime();
-      return timeB - timeA;
-    })
-    .slice(0, 50);
+  // 最新順にソートしてキャッシュ
+  allBookmarks = [...bookmarks].sort((a, b) => {
+    const timeA = new Date(a.timestamp).getTime();
+    const timeB = new Date(b.timestamp).getTime();
+    return timeB - timeA;
+  });
 
-  if (displayList.length === 0) {
+  if (allBookmarks.length === 0) {
     emptyElement.classList.remove('hidden');
     return;
   }
 
   emptyElement.classList.add('hidden');
+
+  // スライス範囲の決定
+  const start = append ? listElement.children.length : 0;
+  const end = Math.min(start + PAGE_SIZE, allBookmarks.length);
+  const displayList = allBookmarks.slice(start, end);
+
+  if (displayList.length === 0) return;
 
   const fragment = document.createDocumentFragment();
 
@@ -80,7 +89,7 @@ function renderBookmarkList(bookmarks: Bookmark[]): void {
     li.className = 'bookmark-item';
     li.dataset.id = bookmark.id;
 
-    // 1. ブックマーク情報リンクエリア (XSS対策：createElement & textContent の徹底)
+    // 1. ブックマーク情報リンクエリア
     const link = document.createElement('a');
     link.className = 'bookmark-link';
     link.href = '#';
@@ -92,7 +101,7 @@ function renderBookmarkList(bookmarks: Bookmark[]): void {
     const infoDiv = document.createElement('div');
     infoDiv.className = 'bookmark-info';
 
-    // メタ情報 (チャンネル名、日時、ライブバッジ)
+    // メタ情報
     const metaDiv = document.createElement('div');
     metaDiv.className = 'bookmark-meta';
 
@@ -131,21 +140,19 @@ function renderBookmarkList(bookmarks: Bookmark[]): void {
 
     li.appendChild(link);
 
-    // 3. 削除ボタン (楽観的UI更新：即時にDOMから要素を消去)
+    // 3. 削除ボタン
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'delete-btn';
     deleteBtn.textContent = '🗑';
     deleteBtn.title = '削除';
     deleteBtn.onclick = async () => {
-      // 楽観的にDOMから即座に削除
+      // 楽観的UI更新
       li.remove();
+      allBookmarks = allBookmarks.filter((b) => b.id !== bookmark.id);
       
-      // 非同期でストレージから消去
       await storageManager.deleteBookmark(bookmark.id);
       
-      // 全件消去後の空表示チェック
-      const currentList = await storageManager.getBookmarks();
-      if (currentList.length === 0) {
+      if (listElement.children.length === 0 && allBookmarks.length === 0) {
         emptyElement.classList.remove('hidden');
       }
     };
@@ -163,13 +170,11 @@ function renderBookmarkList(bookmarks: Bookmark[]): void {
 function renderSettings(settings: Settings): void {
   currentSettings = settings;
 
-  // 1. チャット監視トグルの設定
   const toggle = document.getElementById('chat-observer-toggle') as HTMLInputElement;
   if (toggle) {
     toggle.checked = settings.enableChatObserver;
   }
 
-  // 2. トリガーワードのタグリスト描画
   const listElement = document.getElementById('trigger-words-list');
   if (!listElement) return;
 
@@ -185,7 +190,6 @@ function renderSettings(settings: Settings): void {
     span.textContent = word;
     li.appendChild(span);
 
-    // キーワード削除ボタン
     const removeBtn = document.createElement('button');
     removeBtn.className = 'remove-tag-btn';
     removeBtn.textContent = '✕';
@@ -265,12 +269,10 @@ function setupEventListeners(): void {
       if (!currentSettings) return;
 
       const inputVal = triggerInput.value?.trim();
-      // 入力検証 & サニライズ
       if (!inputVal) return;
 
       const cleanWord = sanitizeString(inputVal, 50);
 
-      // 重複チェック
       if (currentSettings.triggerWords.includes(cleanWord)) {
         alert('そのキーワードは既に登録されています。');
         return;
@@ -294,6 +296,38 @@ function setupEventListeners(): void {
       }
     };
   }
+
+  // 5. 無限スクロール監視設定 (.list-wrapper のスクロール検知)
+  const listWrapper = document.querySelector('.list-wrapper');
+  if (listWrapper) {
+    listWrapper.addEventListener('scroll', () => {
+      const { scrollTop, scrollHeight, clientHeight } = listWrapper;
+      // 最下部から 20px 以内に近づいたら次のページを追加でレンダリング
+      if (scrollHeight - scrollTop - clientHeight < 20) {
+        const currentListElement = document.getElementById('bookmark-list');
+        const currentCount = currentListElement?.children.length || 0;
+        
+        if (currentCount < allBookmarks.length) {
+          renderBookmarkList(allBookmarks, true);
+        }
+      }
+    });
+  }
+
+  // 6. 他のタブや打刻によるストレージの変更を検知してリアルタイム同期
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName === 'local' && changes.bookmarks) {
+      const newBookmarks = (changes.bookmarks.newValue || []) as Bookmark[];
+      // 変更があったらリスト表示を最初から描き直す (同期)
+      renderBookmarkList(newBookmarks, false);
+    }
+    if (areaName === 'sync' && changes.settings) {
+      const newSettings = changes.settings.newValue as Settings;
+      if (newSettings) {
+        renderSettings(newSettings);
+      }
+    }
+  });
 }
 
 /**
@@ -302,7 +336,6 @@ function setupEventListeners(): void {
 export async function initPopup(): Promise<void> {
   setupEventListeners();
 
-  // ブックマーク履歴と設定の読み込みを非同期で並行実行
   const [bookmarks, settings] = await Promise.all([
     storageManager.getBookmarks(),
     storageManager.getSettings(),
@@ -312,7 +345,6 @@ export async function initPopup(): Promise<void> {
   renderSettings(settings);
 }
 
-// ロード完了時にポップアップ初期化
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initPopup);
 } else {

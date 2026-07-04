@@ -52,34 +52,52 @@ function copyManifestAndHtml() {
   };
 }
 
-export default defineConfig({
-  build: {
-    outDir: 'dist',
-    emptyOutDir: true,
-    sourcemap: true,
-    rollupOptions: {
-      input: {
-        background: resolve(__dirname, 'src/background/index.ts'),
-        content: resolve(__dirname, 'src/content/index.ts'),
-        popup: resolve(__dirname, 'src/popup/index.ts'),
-      },
-      output: {
-        entryFileNames: (chunkInfo) => {
-          if (chunkInfo.name === 'background') {
-            return 'background/index.js';
-          }
-          if (chunkInfo.name === 'content') {
-            return 'content/index.js';
-          }
-          if (chunkInfo.name === 'popup') {
-            return 'popup/index.js';
-          }
-          return '[name].js';
+const target = process.env.BUILD_TARGET || 'popup';
+
+export default defineConfig(() => {
+  if (target === 'background') {
+    return {
+      build: {
+        outDir: 'dist',
+        emptyOutDir: true, // 最初のビルドで出力をクリアする
+        lib: {
+          entry: resolve(__dirname, 'src/background/index.ts'),
+          formats: ['es'],
+          fileName: () => 'background/index.js',
         },
-        chunkFileNames: 'chunks/[name]-[hash].js',
-        assetFileNames: '[name].[ext]',
+        sourcemap: true,
       }
-    }
-  },
-  plugins: [copyManifestAndHtml()],
+    };
+  }
+
+  if (target === 'content') {
+    return {
+      build: {
+        outDir: 'dist',
+        emptyOutDir: false, // 前の成果物を残す
+        lib: {
+          entry: resolve(__dirname, 'src/content/index.ts'),
+          formats: ['iife'], // Content Script は IIFE 形式ですべての依存モジュールを自己完結インライン化する
+          name: 'ContentScript',
+          fileName: () => 'content/index.js',
+        },
+        sourcemap: true,
+      }
+    };
+  }
+
+  // デフォルト: popup
+  return {
+    build: {
+      outDir: 'dist',
+      emptyOutDir: false,
+      lib: {
+        entry: resolve(__dirname, 'src/popup/index.ts'),
+        formats: ['es'],
+        fileName: () => 'popup/index.js',
+      },
+      sourcemap: true,
+    },
+    plugins: [copyManifestAndHtml()],
+  };
 });

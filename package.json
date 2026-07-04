@@ -7,7 +7,7 @@
     "test": "tests"
   },
   "scripts": {
-    "build": "vite build",
+    "build": "BUILD_TARGET=background vite build && BUILD_TARGET=content vite build && BUILD_TARGET=popup vite build",
     "test": "vitest",
     "test:run": "vitest run",
     "format": "prettier --write \"src/**/*.{ts,json,html,css}\" \"tests/**/*.ts\""

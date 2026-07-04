@@ -34,6 +34,20 @@ function copyManifestAndHtml() {
         const css = readFileSync('src/popup/index.css', 'utf-8');
         writeFileSync('dist/popup/index.css', css);
       }
+
+      // icons ディレクトリを作成してコピー
+      if (!existsSync('dist/icons')) {
+        mkdirSync('dist/icons');
+      }
+      const iconSizes = [16, 32, 48, 128];
+      iconSizes.forEach((size) => {
+        const srcPath = `src/icons/icon${size}.png`;
+        const destPath = `dist/icons/icon${size}.png`;
+        if (existsSync(srcPath)) {
+          const icon = readFileSync(srcPath);
+          writeFileSync(destPath, icon);
+        }
+      });
     }
   };
 }

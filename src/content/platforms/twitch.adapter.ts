@@ -18,15 +18,45 @@ export class TwitchAdapter extends BasePlatformAdapter {
   }
 
   /**
+   * 配信の開始時刻を取得する。
+   * ページ内の <script> タグの初期状態データから startedAt を検索する。
+   */
+  private getStreamStartedAt(): Date | null {
+    const scripts = Array.from(document.querySelectorAll('script'));
+    for (const script of scripts) {
+      const content = script.textContent;
+      if (content && (content.includes('startedAt') || content.includes('started_at'))) {
+        const match = content.match(/"started_?at"\s*:\s*"([^"]+)"/i);
+        if (match && match[1]) {
+          try {
+            return new Date(match[1]);
+          } catch (e) {
+            console.error('Failed to parse startedAt date:', e);
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
    * 現在の再生位置（秒数）を取得する。
-   * ライブ配信中の場合はシークバーに表示されている経過時間テキストをパースして秒数を取得する。
-   * 取得できない場合は、HTML5 video要素の currentTime にフォールバックする。
+   * ライブ配信中の場合は配信開始時刻（startedAt）と現在の実時間の差分から「真の配信時間」を算出する。
+   * 取得できない場合は、経過時間テキストのパース、またはHTML5 video要素の currentTime にフォールバックする。
    */
   public override async getCurrentTime(): Promise<number> {
     const live = await this.isLive();
     if (live) {
-      // プレイヤーシークバーの経過時間テキストを取得
-      // Twitchの主な時間表示要素のセレクター
+      // 1. 配信開始日時 (startedAt) からの絶対経過秒数を算出 (最も正確)
+      const startedAt = this.getStreamStartedAt();
+      if (startedAt) {
+        const elapsedSeconds = Math.floor((Date.now() - startedAt.getTime()) / 1000);
+        if (elapsedSeconds > 0) {
+          return elapsedSeconds;
+        }
+      }
+
+      // 2. フォールバック：プレイヤーの経過時間表示テキストを取得
       const timeSelectors = [
         '[data-a-target="player-seek-bar-current-time"]',
         '.player-seek__time',

@@ -63,7 +63,7 @@ async function triggerBookmarkSave(): Promise<void> {
 
         if (response && response.success) {
           // 保存に成功した時のみ、このタブで「保存完了」を表示
-          toastManager?.showSuccess(relativeTime);
+          toastManager?.showSuccess(relativeTime, isLive);
         } else {
           const errorMsg = response?.error || '保存に失敗しました';
           toastManager?.showError(errorMsg);

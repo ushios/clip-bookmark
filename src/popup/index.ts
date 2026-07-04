@@ -166,6 +166,16 @@ function renderBookmarkList(bookmarks: Bookmark[], append = false): void {
     timeSpan.textContent = new Date(bookmark.timestamp).toLocaleString();
     metaDiv.appendChild(timeSpan);
 
+    // ライブ配信の場合、配信開始からの経過時間をテキスト表示して手動復元の目安にする
+    if (bookmark.isLive) {
+      const liveDurationSpan = document.createElement('span');
+      liveDurationSpan.className = 'live-duration';
+      liveDurationSpan.textContent = ` (配信開始から ${formatSecondsToTimeString(bookmark.relativeTime)})`;
+      liveDurationSpan.style.color = '#adadb8';
+      liveDurationSpan.style.marginLeft = '4px';
+      metaDiv.appendChild(liveDurationSpan);
+    }
+
     infoDiv.appendChild(metaDiv);
 
     // ビデオタイトル

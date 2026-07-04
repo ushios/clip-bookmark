@@ -43,9 +43,15 @@ export class ToastManager implements IToastManager {
   /**
    * 「XX:XX:XX を保存しました」の完了表示を行う
    */
-  public showSuccess(relativeTime: number): void {
+  public showSuccess(relativeTime: number, isLive = false): void {
     const timeStr = formatSecondsToTimeString(relativeTime);
-    this.renderToast(`${timeStr} をブックマークしました`, 'success');
+    if (isLive) {
+      const now = new Date();
+      const timeStrLocal = now.toTimeString().split(' ')[0]; // hh:mm:ss
+      this.renderToast(`${timeStr} (実時間: ${timeStrLocal}) を記録しました`, 'success');
+    } else {
+      this.renderToast(`${timeStr} をブックマークしました`, 'success');
+    }
   }
 
   /**

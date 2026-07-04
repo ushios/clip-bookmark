@@ -1,4 +1,4 @@
-name: Deploy to Chrome Web Store
+name: Build and Release Extension
 
 on:
   push:

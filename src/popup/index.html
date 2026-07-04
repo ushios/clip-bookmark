@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Twitch Bookmark</title>
+    <link rel="stylesheet" href="index.css" />
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>Twitch Bookmark</h1>
+      </header>
+
+      <main>
+        <!-- タブ切り替えボタン -->
+        <div class="tabs">
+          <button id="tab-history-btn" class="tab-btn active">履歴</button>
+          <button id="tab-settings-btn" class="tab-btn">設定</button>
+        </div>
+
+        <!-- 履歴タブコンテンツ -->
+        <section id="tab-history" class="tab-content">
+          <div class="history-header">
+            <h2>ブックマーク履歴</h2>
+            <button id="clear-all-btn" class="danger-btn text-btn">全件削除</button>
+          </div>
+          <div class="list-wrapper">
+            <ul id="bookmark-list"></ul>
+            <div id="no-bookmarks" class="empty-state hidden">
+              ブックマークがありません。 Alt+Shift+B またはチャットで打刻してください。
+            </div>
+          </div>
+        </section>
+
+        <!-- 設定タブコンテンツ -->
+        <section id="tab-settings" class="tab-content hidden">
+          <h2>チャット自動打刻設定</h2>
+          
+          <div class="settings-group">
+            <label class="toggle-label">
+              <input type="checkbox" id="chat-observer-toggle" />
+              <span class="toggle-text">チャット監視を有効にする</span>
+            </label>
+            <p class="description">
+              無効にするとチャット監視用 MutationObserver の動作が完全に停止し、ブラウザのCPU負荷が0%になります。
+            </p>
+          </div>
+
+          <div class="settings-group">
+            <h3>トリガーキーワード管理</h3>
+            <div class="input-row">
+              <input type="text" id="trigger-word-input" placeholder="例: !clip" maxlength="50" />
+              <button id="add-trigger-btn" class="primary-btn">追加</button>
+            </div>
+            <ul id="trigger-words-list" class="tag-list"></ul>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- JS エントリーポイント -->
+    <script type="module" src="index.ts"></script>
+  </body>
+</html>

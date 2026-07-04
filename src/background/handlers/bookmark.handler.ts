@@ -58,6 +58,15 @@ export async function handleExtensionMessage(
       const storageManager = StorageManager.getInstance();
       await storageManager.saveBookmark(bookmark);
 
+      // 保存完了バッジを拡張アイコン上に表示 (1.5秒間のみ)
+      if (typeof chrome !== 'undefined' && chrome.action) {
+        chrome.action.setBadgeText({ text: '＋1' });
+        chrome.action.setBadgeBackgroundColor({ color: '#9146ff' }); // Twitchパープル
+        setTimeout(() => {
+          chrome.action.setBadgeText({ text: '' });
+        }, 1500);
+      }
+
       sendResponse({ success: true, bookmark });
     } catch (error: any) {
       console.error('Failed to save bookmark:', error);

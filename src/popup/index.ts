@@ -390,6 +390,10 @@ function setupEventListeners(): void {
  * ポップアップ起動時の初期化処理
  */
 export async function initPopup(): Promise<void> {
+  // テスト間や再開時の状態リークを防ぐために明示的に初期化
+  activeFilter = 'current';
+  activeTabUrl = null;
+
   // 現在のアクティブなタブのURLを解決する
   activeTabUrl = await new Promise<string | null>((resolve) => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -398,7 +402,25 @@ export async function initPopup(): Promise<void> {
     });
   });
 
+  // 非Twitchページで開いた場合は、デフォルトで「すべて表示」にして空画面を避ける
+  if (!activeTabUrl || (!activeTabUrl.includes('twitch.tv') && !activeTabUrl.includes('localhost'))) {
+    activeFilter = 'all';
+  }
+
   setupEventListeners();
+
+  // フィルターボタンの初期アクティブクラスを調整
+  const filterCurrentBtn = document.getElementById('filter-current-btn');
+  const filterAllBtn = document.getElementById('filter-all-btn');
+  if (filterCurrentBtn && filterAllBtn) {
+    if (activeFilter === 'all') {
+      filterCurrentBtn.classList.remove('active');
+      filterAllBtn.classList.add('active');
+    } else {
+      filterCurrentBtn.classList.add('active');
+      filterAllBtn.classList.remove('active');
+    }
+  }
 
   const [bookmarks, settings] = await Promise.all([
     storageManager.getBookmarks(),

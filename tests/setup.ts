@@ -4,16 +4,40 @@ import { vi } from 'vitest';
 const chromeMock = {
   storage: {
     local: {
-      get: vi.fn(),
-      set: vi.fn(),
-      clear: vi.fn(),
-      remove: vi.fn(),
+      get: vi.fn((keys, callback) => {
+        if (callback) callback({});
+        return Promise.resolve({});
+      }),
+      set: vi.fn((items, callback) => {
+        if (callback) callback();
+        return Promise.resolve();
+      }),
+      clear: vi.fn((callback) => {
+        if (callback) callback();
+        return Promise.resolve();
+      }),
+      remove: vi.fn((keys, callback) => {
+        if (callback) callback();
+        return Promise.resolve();
+      }),
     },
     sync: {
-      get: vi.fn(),
-      set: vi.fn(),
-      clear: vi.fn(),
-      remove: vi.fn(),
+      get: vi.fn((keys, callback) => {
+        if (callback) callback({});
+        return Promise.resolve({});
+      }),
+      set: vi.fn((items, callback) => {
+        if (callback) callback();
+        return Promise.resolve();
+      }),
+      clear: vi.fn((callback) => {
+        if (callback) callback();
+        return Promise.resolve();
+      }),
+      remove: vi.fn((keys, callback) => {
+        if (callback) callback();
+        return Promise.resolve();
+      }),
     },
     onChanged: {
       addListener: vi.fn(),

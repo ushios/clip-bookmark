@@ -1,6 +1,7 @@
 import { StorageManager } from '../common/storage/storage.manager';
 import { Bookmark } from '../common/models/bookmark.model';
 import { Settings } from '../common/models/settings.model';
+import { MESSAGE_ACTIONS } from '../common/models/messages';
 import { formatSecondsToTimeString } from '../common/utils/time';
 import { validateVideoUrl, sanitizeString } from '../common/utils/security';
 
@@ -15,6 +16,9 @@ let allBookmarks: Bookmark[] = []; // 全ブックマークのメモリ内キャ
 let filteredBookmarks: Bookmark[] = []; // フィルター適用後のブックマークキャッシュ
 let activeFilter: 'current' | 'all' = 'current';
 let activeTabUrl: string | null = null;
+let activeTabTitle: string | null = null;
+let activeTabChannel: string | null = null;
+let activeTabIsLive: boolean = false;
 const PAGE_SIZE = 50;
 
 /**
@@ -81,9 +85,19 @@ function renderBookmarkList(bookmarks: Bookmark[], append = false): void {
 
   // 2. フィルター適用
   let targetList = [...allBookmarks];
-  if (activeFilter === 'current' && activeTabUrl) {
-    const currentBase = getBaseUrl(activeTabUrl);
-    targetList = targetList.filter((b) => getBaseUrl(b.videoUrl) === currentBase);
+  if (activeFilter === 'current') {
+    if (activeTabIsLive && activeTabChannel) {
+      // ライブ配信中の場合：チャンネル名と現在の配信タイトルが一致するブックマークのみを表示
+      targetList = targetList.filter((b) => {
+        return b.isLive && 
+               b.channelName === activeTabChannel && 
+               b.title === activeTabTitle;
+      });
+    } else if (activeTabUrl) {
+      // VOD（アーカイブ動画）の場合：動画ID（ベースURL）が一致するブックマークのみを表示
+      const currentBase = getBaseUrl(activeTabUrl);
+      targetList = targetList.filter((b) => !b.isLive && getBaseUrl(b.videoUrl) === currentBase);
+    }
   }
 
   // 3. 最新順にソートしてキャッシュ
@@ -393,17 +407,42 @@ export async function initPopup(): Promise<void> {
   // テスト間や再開時の状態リークを防ぐために明示的に初期化
   activeFilter = 'current';
   activeTabUrl = null;
+  activeTabTitle = null;
+  activeTabChannel = null;
+  activeTabIsLive = false;
 
-  // 現在のアクティブなタブのURLを解決する
-  activeTabUrl = await new Promise<string | null>((resolve) => {
+  // 現在のアクティブなタブを検索
+  const activeTab = await new Promise<chrome.tabs.Tab | null>((resolve) => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      const activeTab = tabs[0];
-      resolve(activeTab?.url || null);
+      resolve(tabs[0] || null);
     });
   });
 
+  if (activeTab && activeTab.id && activeTab.url) {
+    activeTabUrl = activeTab.url;
+
+    // Twitchページであれば、Content Script にリアルタイム情報を問い合わせる
+    if (activeTab.url.includes('twitch.tv')) {
+      await new Promise<void>((resolve) => {
+        chrome.tabs.sendMessage(activeTab.id!, { action: MESSAGE_ACTIONS.GET_VIDEO_INFO }, (response) => {
+          if (chrome.runtime.lastError) {
+            // Content Scriptがロードされていない、または非アクティブな場合はフォールバック
+            console.warn('Failed to communicate with content script:', chrome.runtime.lastError.message);
+          } else if (response && response.success) {
+            activeTabUrl = response.videoUrl || activeTab.url;
+            activeTabTitle = response.title || null;
+            activeTabChannel = response.channelName || null;
+            activeTabIsLive = !!response.isLive;
+          }
+          resolve();
+        });
+      });
+    }
+  }
+
   // 非Twitchページで開いた場合は、デフォルトで「すべて表示」にして空画面を避ける
-  if (!activeTabUrl || (!activeTabUrl.includes('twitch.tv') && !activeTabUrl.includes('localhost'))) {
+  const isTwitchVideoOrLive = activeTabUrl && activeTabUrl.includes('twitch.tv') && (activeTabUrl.includes('/videos/') || activeTabChannel);
+  if (!isTwitchVideoOrLive) {
     activeFilter = 'all';
   }
 

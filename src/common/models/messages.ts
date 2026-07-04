@@ -6,6 +6,8 @@ export const MESSAGE_ACTIONS = {
   TRIGGER_BOOKMARK: 'TRIGGER_BOOKMARK',
   /** ブックマークの保存指示（Service Workerへの保存要求） */
   SAVE_BOOKMARK: 'SAVE_BOOKMARK',
+  /** 現在視聴中の動画/配信情報の取得要求（PopupからContent Scriptへの要求） */
+  GET_VIDEO_INFO: 'GET_VIDEO_INFO',
 } as const;
 
 export type MessageAction = typeof MESSAGE_ACTIONS[keyof typeof MESSAGE_ACTIONS];

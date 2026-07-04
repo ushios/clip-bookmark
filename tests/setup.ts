@@ -58,7 +58,10 @@ const chromeMock = {
     query: vi.fn((queryInfo, callback) => {
       if (callback) callback([]);
     }),
-    sendMessage: vi.fn(),
+    sendMessage: vi.fn((tabId, message, options, responseCallback) => {
+      const callback = typeof options === 'function' ? options : responseCallback;
+      if (callback) callback({ success: true });
+    }),
     create: vi.fn(),
   },
   commands: {

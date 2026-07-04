@@ -251,6 +251,20 @@ describe('User Story 3: Popup UI & Settings', () => {
       }
     });
 
+    // Content Scriptからのメッセージ応答（VOD設定）
+    vi.mocked(chrome.tabs.sendMessage).mockImplementation((tabId, message, options, responseCallback) => {
+      const callback = typeof options === 'function' ? options : responseCallback;
+      if (callback) {
+        callback({
+          success: true,
+          videoUrl: 'https://twitch.tv/videos/12345',
+          title: 'VOD Title A',
+          channelName: 'streamer_a',
+          isLive: false,
+        });
+      }
+    });
+
     await initPopup();
     await new Promise((resolve) => setTimeout(resolve, 50));
 
@@ -280,6 +294,39 @@ describe('User Story 3: Popup UI & Settings', () => {
     expect(list?.children.length).toBe(1);
     expect(list?.textContent).toContain('streamer_a');
     expect(list?.textContent).not.toContain('streamer_b');
+  });
+
+  it('は生放送中において、チャンネル名と配信タイトルが一致するブックマークのみを表示すること', async () => {
+    // アクティブタブのURLをモック
+    vi.mocked(chrome.tabs.query).mockImplementation((queryInfo, callback) => {
+      if (callback) {
+        callback([{ id: 1, url: 'https://twitch.tv/streamer_b', active: true, windowId: 1 } as unknown as chrome.tabs.Tab]);
+      }
+    });
+
+    // Content Scriptからのメッセージ応答（生放送設定）
+    vi.mocked(chrome.tabs.sendMessage).mockImplementation((tabId, message, options, responseCallback) => {
+      const callback = typeof options === 'function' ? options : responseCallback;
+      if (callback) {
+        callback({
+          success: true,
+          videoUrl: 'https://twitch.tv/streamer_b',
+          title: 'Live Title B',
+          channelName: 'streamer_b',
+          isLive: true,
+        });
+      }
+    });
+
+    await initPopup();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const list = document.getElementById('bookmark-list');
+    
+    // ライブ配信が一致する「2」のブックマーク1件のみが表示されること
+    expect(list?.children.length).toBe(1);
+    expect(list?.textContent).toContain('streamer_b');
+    expect(list?.textContent).not.toContain('streamer_a');
   });
 });
 

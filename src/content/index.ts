@@ -132,6 +132,38 @@ if (document.readyState === 'loading') {
   initialize();
 }
 
+// 他のコンテキスト (Popupなど) からの動画情報取得要求への応答
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (sender.id !== chrome.runtime.id) return;
+
+  if (message.action === MESSAGE_ACTIONS.GET_VIDEO_INFO) {
+    if (!twitchAdapter) {
+      sendResponse({ success: false, error: 'Adapter not initialized' });
+      return;
+    }
+
+    Promise.all([
+      twitchAdapter.getVideoUrl(),
+      twitchAdapter.getVideoTitle(),
+      twitchAdapter.getChannelName(),
+      twitchAdapter.isLive(),
+    ]).then(([videoUrl, title, channelName, isLive]) => {
+      sendResponse({
+        success: true,
+        videoUrl,
+        title,
+        channelName,
+        isLive,
+      });
+    }).catch((err) => {
+      console.error('Failed to get video info:', err);
+      sendResponse({ success: false, error: err.message });
+    });
+
+    return true; // 非同期応答を有効化
+  }
+});
+
 // リソース解放イベントのハンドリング
 window.addEventListener('unload', () => {
   if (twitchAdapter) twitchAdapter.destroy();

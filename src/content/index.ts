@@ -22,7 +22,7 @@ const storageManager = StorageManager.getInstance();
  * ゴーストトースト防止のため、メッセージ送信完了のレスポンス（Request-Response）を待って、
  * このアクティブタブのトースト通知のみを「保存完了」に更新します。
  */
-async function triggerBookmarkSave(): Promise<void> {
+async function triggerBookmarkSave(memo?: string): Promise<void> {
   if (!twitchAdapter || !toastManager) return;
 
   try {
@@ -51,6 +51,7 @@ async function triggerBookmarkSave(): Promise<void> {
           timestamp: new Date().toISOString(),
           relativeTime,
           isLive,
+          memo, // メモを追加
         },
       },
       (response) => {
@@ -90,7 +91,7 @@ function updateChatObserver(settings: Settings): void {
   if (settings.enableChatObserver) {
     // コンストラクタでコールバックを渡さず、observeChat(callback) を使用する新設計に対応
     chatObserver = new ChatObserver(undefined, settings.triggerWords);
-    chatObserver.observeChat(() => triggerBookmarkSave());
+    chatObserver.observeChat((data) => triggerBookmarkSave(data?.text));
   }
 }
 

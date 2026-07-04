@@ -163,11 +163,3 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true; // 非同期応答を有効化
   }
 });
-
-// リソース解放イベントのハンドリング
-window.addEventListener('unload', () => {
-  if (twitchAdapter) twitchAdapter.destroy();
-  if (toastManager) toastManager.destroy();
-  if (commandObserver) commandObserver.destroy();
-  if (chatObserver) chatObserver.destroy();
-});

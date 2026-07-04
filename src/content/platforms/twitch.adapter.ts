@@ -19,17 +19,21 @@ export class TwitchAdapter extends BasePlatformAdapter {
 
   /**
    * 配信の開始時刻を取得する。
-   * ページ内の <script> タグの初期状態データから startedAt を検索する。
+   * ページ内の <script> タグの初期状態データから startedAt または stream.createdAt を検索する。
    */
   private getStreamStartedAt(): Date | null {
     const scripts = Array.from(document.querySelectorAll('script'));
     for (const script of scripts) {
       const content = script.textContent;
-      if (content && (content.includes('startedAt') || content.includes('started_at'))) {
-        const match = content.match(/"started_?at"\s*:\s*"([^"]+)"/i);
+      if (content) {
+        // startedAt:"2026..." または createdAt:"2026..." のいずれかを緩めに検索
+        const match = content.match(/"(?:started_?at|createdAt)"\s*:\s*"([^"]+)"/i);
         if (match && match[1]) {
           try {
-            return new Date(match[1]);
+            const date = new Date(match[1]);
+            if (!isNaN(date.getTime())) {
+              return date;
+            }
           } catch (e) {
             console.error('Failed to parse startedAt date:', e);
           }
@@ -42,7 +46,7 @@ export class TwitchAdapter extends BasePlatformAdapter {
   /**
    * 現在の再生位置（秒数）を取得する。
    * ライブ配信中の場合は配信開始時刻（startedAt）と現在の実時間の差分から「真の配信時間」を算出する。
-   * 取得できない場合は、経過時間テキストのパース、またはHTML5 video要素の currentTime にフォールバックする。
+   * 取得できない場合は、プレイヤー外部の Uptime 表示タイマー（視聴開始からの時間ではないもの）を抽出する。
    */
   public override async getCurrentTime(): Promise<number> {
     const live = await this.isLive();
@@ -56,19 +60,38 @@ export class TwitchAdapter extends BasePlatformAdapter {
         }
       }
 
-      // 2. フォールバック：プレイヤーの経過時間表示テキストを取得
-      const timeSelectors = [
-        '[data-a-target="player-seek-bar-current-time"]',
-        '.player-seek__time',
+      // 2. プレイヤー外部の Uptime（配信経過時間）表示要素を探索
+      // プレイヤー内のシークバー（[data-a-target="player-seek-bar-current-time"]）は視聴開始からの時間なので除外する
+      const uptimeSelectors = [
         '.live-time',
+        'span.live-time',
+        '.uptime',
+        'span.uptime',
+        '.stream-uptime',
+        '.live-indicator-container',
+        '[data-a-target="player-live-indicator"]',
+        '.live-indicator-container span',
+        '.channel-status-info',
       ];
 
-      for (const selector of timeSelectors) {
-        const element = document.querySelector(selector);
-        if (element && element.textContent) {
-          const seconds = parseTimeStringToSeconds(element.textContent);
-          if (seconds > 0) {
-            return seconds;
+      for (const selector of uptimeSelectors) {
+        const elements = document.querySelectorAll(selector);
+        for (const el of Array.from(elements)) {
+          // コントロールバー（.player-controls や .video-player）の中にあるものは「視聴開始からの経過時間」になっているためスキップ
+          if (el.closest('.player-controls') || el.closest('.video-player')) {
+            continue;
+          }
+
+          const text = el.textContent?.trim();
+          if (text) {
+            // hh:mm:ss または mm:ss を正規表現で抽出
+            const timeMatch = text.match(/(?:(\d+):)?(\d+):(\d+)/);
+            if (timeMatch) {
+              const seconds = parseTimeStringToSeconds(timeMatch[0]);
+              if (seconds > 0) {
+                return seconds;
+              }
+            }
           }
         }
       }

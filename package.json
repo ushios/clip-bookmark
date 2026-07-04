@@ -1,5 +1,5 @@
 {
-  "name": "twitch-bookmark",
+  "name": "clip-bookmark",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -14,16 +14,16 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ushios/twitch-bookmark.git"
+    "url": "git+https://github.com/ushios/clip-bookmark.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "bugs": {
-    "url": "https://github.com/ushios/twitch-bookmark/issues"
+    "url": "https://github.com/ushios/clip-bookmark/issues"
   },
-  "homepage": "https://github.com/ushios/twitch-bookmark#readme",
+  "homepage": "https://github.com/ushios/clip-bookmark#readme",
   "devDependencies": {
     "@types/chrome": "^0.2.2",
     "happy-dom": "^20.10.6",

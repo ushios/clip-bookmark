@@ -1,8 +1,8 @@
-# Implementation Plan: Twitch Bookmark Trigger (Twitch ブックマーク・トリガー機能)
+# Implementation Plan: Clip Bookmark Trigger (クリップ ブックマーク・トリガー機能)
 
-**Branch**: `001-twitch-bookmark` | **Date**: 2026-07-04 | **Spec**: [spec.md](file:///Users/shugo/Develops/ushios/twitch-bookmark/specs/001-twitch-bookmark/spec.md)
+**Branch**: `001-clip-bookmark` | **Date**: 2026-07-04 | **Spec**: [spec.md](file:///Users/shugo/Develops/ushios/clip-bookmark/specs/001-clip-bookmark/spec.md)
 
-**Input**: Feature specification from `specs/001-twitch-bookmark/spec.md`
+**Input**: Feature specification from `specs/001-clip-bookmark/spec.md`
 
 ## Summary
 Twitchの配信またはVOD（アーカイブ）視聴中に、キーボードショートカットまたはチャット入力欄での指定キーワード（カスタム可能）の送信をトリガーとして、その時点の経過時間（または再生位置）をブックマークとして保存し、後からポップアップUIで確認・該当時間へのジャンプができるChrome拡張機能を開発します。

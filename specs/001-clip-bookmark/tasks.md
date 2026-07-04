@@ -1,6 +1,6 @@
-# Tasks: Twitch Bookmark Trigger (Twitch ブックマーク・トリガー機能)
+# Tasks: Clip Bookmark Trigger (クリップ ブックマーク・トリガー機能)
 
-**Input**: Design documents from `specs/001-twitch-bookmark/`
+**Input**: Design documents from `specs/001-clip-bookmark/`
 
 **Prerequisites**: plan.md (required), spec.md (required)
 

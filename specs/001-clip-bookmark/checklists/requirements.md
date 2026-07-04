@@ -1,8 +1,8 @@
-# Specification Quality Checklist: Twitch Bookmark Trigger
+# Specification Quality Checklist: Clip Bookmark Trigger
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning
 **Created**: 2026-07-04
-**Feature**: [spec.md](file:///Users/shugo/Develops/ushios/twitch-bookmark/specs/001-twitch-bookmark/spec.md)
+**Feature**: [spec.md](file:///Users/shugo/Develops/ushios/clip-bookmark/specs/001-clip-bookmark/spec.md)
 
 ## Content Quality
 

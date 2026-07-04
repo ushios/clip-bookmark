@@ -22,7 +22,7 @@
 
 ### ステップ 2-1: Google Cloud プロジェクトの作成と API 有効化
 1. **[Google Cloud Console](https://console.cloud.google.com/)** にアクセスします。
-2. 画面上部のプロジェクト選択メニューから **「プロジェクトの作成」** をクリックして新規プロジェクト（例: `Twitch-Bookmark-Deploy`）を作成します。
+2. 画面上部のプロジェクト選択メニューから **「プロジェクトの作成」** をクリックして新規プロジェクト（例: `Clip-Bookmark-Deploy`）を作成します。
 3. 左メニューの「API とサービス」 > **「ライブラリ」** を選択します。
 4. 検索欄に **「Chrome Web Store API」** と入力し、表示されたAPIを選択して **「有効にする」** をクリックします。
 
@@ -69,7 +69,7 @@
 
 取得した 4 つの情報を GitHub のリポジトリに登録し、 Actions で利用できるようにします。
 
-1. GitHub上のあなたのリポジトリページ（`twitch-bookmark`）を開きます。
+1. GitHub上のあなたのリポジトリページ（`clip-bookmark`）を開きます。
 2. 画面上部のメニューから **「Settings」**（設定）を選択します。
 3. 左側メニューの **「Secrets and variables」** > **「Actions」** を選択します。
 4. **「New repository secret」**（新しいシークレット）ボタンをクリックします。

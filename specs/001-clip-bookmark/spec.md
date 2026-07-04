@@ -1,6 +1,6 @@
-# Feature Specification: Twitch Bookmark Trigger (Twitch ブックマーク・トリガー機能)
+# Feature Specification: Clip Bookmark Trigger (クリップ ブックマーク・トリガー機能)
 
-**Feature Branch**: `001-twitch-bookmark`
+**Feature Branch**: `001-clip-bookmark`
 
 **Created**: 2026-07-04
 

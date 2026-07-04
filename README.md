@@ -1,4 +1,4 @@
-# Twitch Bookmark Chrome Extension (Manifest V3)
+# Clip Bookmark Chrome Extension (Manifest V3)
 
 Twitchの配信またはVOD（アーカイブ）の視聴中に、経過時間や再生位置を簡単かつ安全に打刻・保存し、後から確認や該当時間へジャンプができる軽量・安全設計のGoogle Chrome拡張機能です。
 

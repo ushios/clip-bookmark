@@ -167,9 +167,41 @@ export class TwitchAdapter extends BasePlatformAdapter {
   }
 
   /**
-   * 現在の動画（VOD）のベースURL、またはライブ配信のチャンネルURLを取得する
+   * 現在進行中のアーカイブ動画ID（VOD ID）をページ内メタデータから取得する
+   */
+  private getArchiveVideoId(): string | null {
+    const scripts = Array.from(document.querySelectorAll('script'));
+    for (const script of scripts) {
+      const content = script.textContent;
+      if (content) {
+        // パターン1: "archiveVideo":{"id":"123456789"}
+        const archiveMatch = content.match(/"archiveVideo"\s*:\s*\{\s*"id"\s*:\s*"(\d+)"/i);
+        if (archiveMatch && archiveMatch[1]) {
+          return archiveMatch[1];
+        }
+        
+        // パターン2: "archiveVideoId":"123456789"
+        const archiveIdMatch = content.match(/"archiveVideoId"\s*:\s*"(\d+)"/i);
+        if (archiveIdMatch && archiveIdMatch[1]) {
+          return archiveIdMatch[1];
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
+   * 現在の動画（VOD）のベースURL、またはライブ配信中の場合は進行中のVOD URLを取得する
    */
   public async getVideoUrl(): Promise<string> {
+    const live = await this.isLive();
+    if (live) {
+      const archiveVideoId = this.getArchiveVideoId();
+      if (archiveVideoId) {
+        return `https://www.twitch.tv/videos/${archiveVideoId}`;
+      }
+    }
+
     // クエリパラメータを除去したクリーンなURLを返却
     const url = new URL(window.location.href);
     url.search = ''; // t= などのパラメータをクリア

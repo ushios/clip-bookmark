@@ -196,6 +196,73 @@ function renderBookmarkList(bookmarks: Bookmark[], append = false): void {
 
     li.appendChild(link);
 
+    // 2.5 メモエリアの追加
+    const memoDiv = document.createElement('div');
+    memoDiv.className = 'memo-container';
+
+    const memoSpan = document.createElement('span');
+    memoSpan.className = 'memo-text';
+    memoSpan.textContent = bookmark.memo ? sanitizeString(bookmark.memo, 100) : 'メモを追加...';
+    if (!bookmark.memo) {
+      memoSpan.classList.add('empty-memo');
+    }
+
+    const memoInput = document.createElement('input');
+    memoInput.type = 'text';
+    memoInput.className = 'memo-input hidden';
+    memoInput.value = bookmark.memo || '';
+    memoInput.maxLength = 100;
+    memoInput.placeholder = 'メモを入力してEnterで保存';
+
+    memoSpan.onclick = (e) => {
+      e.stopPropagation();
+      memoSpan.classList.add('hidden');
+      memoInput.classList.remove('hidden');
+      memoInput.focus();
+    };
+
+    const saveMemo = async () => {
+      const newMemo = memoInput.value.trim();
+      memoInput.classList.add('hidden');
+      memoSpan.classList.remove('hidden');
+
+      if (newMemo === (bookmark.memo || '')) {
+        return; // 変更なし
+      }
+
+      const updatedBookmark = { ...bookmark, memo: newMemo || undefined };
+      allBookmarks = allBookmarks.map(b => b.id === bookmark.id ? updatedBookmark : b);
+      filteredBookmarks = filteredBookmarks.map(b => b.id === bookmark.id ? updatedBookmark : b);
+
+      memoSpan.textContent = newMemo ? newMemo : 'メモを追加...';
+      if (newMemo) {
+        memoSpan.classList.remove('empty-memo');
+      } else {
+        memoSpan.classList.add('empty-memo');
+      }
+
+      await storageManager.updateBookmarkMemo(bookmark.id, newMemo);
+    };
+
+    memoInput.onkeydown = (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        saveMemo();
+      }
+      if (e.key === 'Escape') {
+        memoInput.value = bookmark.memo || '';
+        memoInput.classList.add('hidden');
+        memoSpan.classList.remove('hidden');
+      }
+    };
+    memoInput.onblur = () => {
+      saveMemo();
+    };
+
+    memoDiv.appendChild(memoSpan);
+    memoDiv.appendChild(memoInput);
+    li.appendChild(memoDiv);
+
     // 3. 削除ボタン
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'delete-btn';

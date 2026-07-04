@@ -127,6 +127,22 @@ export class StorageManager {
   }
 
   /**
+   * 指定したIDのブックマークのメモを更新
+   */
+  public async updateBookmarkMemo(id: string, memo: string): Promise<void> {
+    return this.enqueue(async () => {
+      const bookmarks = await this.getBookmarks();
+      const updated = bookmarks.map((b) => {
+        if (b.id === id) {
+          return { ...b, memo: memo || undefined };
+        }
+        return b;
+      });
+      await this.setStorage('local', { bookmarks: updated });
+    });
+  }
+
+  /**
    * 設定を取得（保存されていない場合はデフォルト値を返却）
    */
   public async getSettings(): Promise<Settings> {

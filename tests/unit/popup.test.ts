@@ -328,5 +328,49 @@ describe('User Story 3: Popup UI & Settings', () => {
     expect(list?.textContent).toContain('streamer_b');
     expect(list?.textContent).not.toContain('streamer_a');
   });
+
+  it('はブックマークのメモを表示し、インライン編集して保存できること', async () => {
+    // 既存のブックマークにメモを設定 (readonly制約をキャストで回避)
+    (mockBookmarks[0] as any).memo = 'テストのメモ';
+    vi.spyOn(StorageManager.prototype, 'updateBookmarkMemo').mockResolvedValue(undefined);
+
+    await initPopup();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    // テスト間のタブモック干渉を防ぐため、「すべて表示」に切り替える
+    const filterAllBtn = document.getElementById('filter-all-btn');
+    filterAllBtn?.click();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const list = document.getElementById('bookmark-list');
+    // IDが "1" のブックマーク要素を明示的に取得
+    const firstItem = list?.querySelector('[data-id="1"]') as HTMLElement;
+    expect(firstItem).not.toBeNull();
+    
+    // メモテキストが正しく描画されているか検証
+    const memoSpan = firstItem.querySelector('.memo-text') as HTMLElement;
+    expect(memoSpan).not.toBeNull();
+    expect(memoSpan.textContent).toBe('テストのメモ');
+
+    // 編集インプットが隠れていることを確認
+    const memoInput = firstItem.querySelector('.memo-input') as HTMLInputElement;
+    expect(memoInput.classList.contains('hidden')).toBe(true);
+
+    // メモテキストをクリックして編集モードに切り替え
+    memoSpan.click();
+    expect(memoSpan.classList.contains('hidden')).toBe(true);
+    expect(memoInput.classList.contains('hidden')).toBe(false);
+
+    // インプットに新しい文字を入力し、Enterで確定
+    memoInput.value = '更新されたメモ';
+    const enterEvent = new KeyboardEvent('keydown', { key: 'Enter' });
+    memoInput.dispatchEvent(enterEvent);
+
+    // 編集モードが閉じ、StorageManagerに保存されたか検証
+    expect(memoInput.classList.contains('hidden')).toBe(true);
+    expect(memoSpan.classList.contains('hidden')).toBe(false);
+    expect(memoSpan.textContent).toBe('更新されたメモ');
+    expect(StorageManager.prototype.updateBookmarkMemo).toHaveBeenCalledWith('1', '更新されたメモ');
+  });
 });
 

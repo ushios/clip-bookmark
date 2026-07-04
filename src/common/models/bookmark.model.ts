@@ -20,4 +20,6 @@ export interface Bookmark {
   readonly isLive: boolean;
   /** 将来的なプラットフォーム固有の拡張データ用メタデータ */
   readonly metadata?: Record<string, unknown>;
+  /** ユーザーによる任意のコメント/メモ */
+  readonly memo?: string;
 }

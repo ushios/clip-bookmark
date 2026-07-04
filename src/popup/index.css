@@ -177,6 +177,7 @@ ul {
 /* ブックマーク項目 */
 .bookmark-item {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
   padding: 10px 12px;
@@ -203,6 +204,11 @@ ul {
 .bookmark-link {
   text-decoration: none;
   cursor: pointer;
+  width: calc(100% - 24px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  overflow: hidden;
 }
 
 .bookmark-meta {
@@ -400,4 +406,45 @@ input[type="text"]:focus {
 
 .remove-tag-btn:hover {
   color: var(--danger-color);
+}
+
+/* メモ表示・編集 */
+.memo-container {
+  width: 100%;
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--border-color);
+  font-size: 11px;
+}
+
+.memo-text {
+  color: var(--text-muted);
+  cursor: pointer;
+  display: block;
+  word-break: break-all;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.memo-text:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+  color: var(--text-color);
+}
+
+.memo-text.empty-memo {
+  color: rgba(255, 255, 255, 0.25);
+  font-style: italic;
+}
+
+.memo-input {
+  width: 100%;
+  box-sizing: border-box;
+  background-color: var(--bg-color);
+  border: 1px solid var(--primary-color);
+  border-radius: 4px;
+  color: var(--text-color);
+  padding: 4px 8px;
+  font-size: 11px;
+  outline: none;
 }

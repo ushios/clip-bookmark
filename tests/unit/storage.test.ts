@@ -91,6 +91,39 @@ describe('StorageManager', () => {
       expect(setCallArgs.bookmarks[0].id).toBe('2'); // 古い1件目が削除されている
       expect(setCallArgs.bookmarks[999].id).toBe('1001'); // 最新が末尾に追加されている
     });
+
+    it('は指定したIDのブックマークのメモを更新できること', async () => {
+      const existingBookmark: Bookmark = {
+        id: '99',
+        platform: 'twitch',
+        channelName: 'test',
+        title: 'test',
+        videoUrl: 'https://twitch.tv/videos/99',
+        timestamp: new Date().toISOString(),
+        relativeTime: 99,
+        isLive: false,
+      };
+
+      vi.mocked(chrome.storage.local.get).mockImplementation((_keys, callback) => {
+        if (callback) callback({ bookmarks: [existingBookmark] });
+        return Promise.resolve({ bookmarks: [existingBookmark] });
+      });
+
+      const manager = StorageManager.getInstance();
+      await manager.updateBookmarkMemo('99', '新しいメモ');
+
+      expect(chrome.storage.local.set).toHaveBeenCalledWith(
+        expect.objectContaining({
+          bookmarks: [
+            expect.objectContaining({
+              id: '99',
+              memo: '新しいメモ',
+            }),
+          ],
+        }),
+        expect.any(Function),
+      );
+    });
   });
 
   describe('Settings Operations', () => {

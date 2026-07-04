@@ -93,6 +93,40 @@ main {
   display: none !important;
 }
 
+/* フィルターバー */
+.filter-bar {
+  display: flex;
+  background-color: rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  padding: 2px;
+  margin-bottom: 12px;
+}
+
+.filter-btn {
+  flex: 1;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.filter-btn:hover {
+  color: var(--text-color);
+}
+
+.filter-btn.active {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: var(--text-color);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+
 /* 履歴ヘッダー */
 .history-header {
   display: flex;

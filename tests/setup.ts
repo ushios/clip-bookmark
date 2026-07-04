@@ -55,7 +55,9 @@ const chromeMock = {
     id: 'mock-extension-id',
   },
   tabs: {
-    query: vi.fn(),
+    query: vi.fn((queryInfo, callback) => {
+      if (callback) callback([]);
+    }),
     sendMessage: vi.fn(),
     create: vi.fn(),
   },

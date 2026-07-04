@@ -11,18 +11,39 @@ describe('User Story 3: Popup UI & Settings', () => {
   beforeEach(() => {
     // DOMを模擬リセット
     document.body.innerHTML = `
-      <div id="app">
-        <!-- ブックマークリスト（無限スクロール用コンテナ含む） -->
-        <div class="list-wrapper" style="height: 300px; overflow-y: scroll;">
-          <ul id="bookmark-list"></ul>
-        </div>
-        <div id="no-bookmarks" class="hidden">履歴がありません</div>
-        
-        <!-- 設定フォーム -->
-        <input type="text" id="trigger-word-input" />
-        <button id="add-trigger-btn">追加</button>
-        <ul id="trigger-words-list"></ul>
-        <input type="checkbox" id="chat-observer-toggle" />
+      <div class="container">
+        <header>
+          <h1>Clip Bookmark</h1>
+        </header>
+
+        <main>
+          <div class="tabs">
+            <button id="tab-history-btn" class="tab-btn active">履歴</button>
+            <button id="tab-settings-btn" class="tab-btn">設定</button>
+          </div>
+
+          <section id="tab-history" class="tab-content">
+            <div class="history-header">
+              <h2>ブックマーク履歴</h2>
+              <button id="clear-all-btn" class="danger-btn text-btn">全件削除</button>
+            </div>
+            <div class="filter-bar">
+              <button id="filter-current-btn" class="filter-btn active">この動画のみ</button>
+              <button id="filter-all-btn" class="filter-btn">すべて表示</button>
+            </div>
+            <div class="list-wrapper" style="height: 300px; overflow-y: scroll;">
+              <ul id="bookmark-list"></ul>
+              <div id="no-bookmarks" class="empty-state hidden">履歴がありません</div>
+            </div>
+          </section>
+
+          <section id="tab-settings" class="tab-content hidden">
+            <input type="checkbox" id="chat-observer-toggle" />
+            <input type="text" id="trigger-word-input" />
+            <button id="add-trigger-btn">追加</button>
+            <ul id="trigger-words-list"></ul>
+          </section>
+        </main>
       </div>
     `;
 
@@ -221,4 +242,44 @@ describe('User Story 3: Popup UI & Settings', () => {
     expect(list?.children.length).toBe(3);
     expect(list?.textContent).toContain('streamer_c');
   });
+
+  it('は現在のアクティブタブの動画URLに合致するブックマークのみをデフォルトで表示し、フィルタを切り替えることができること', async () => {
+    // アクティブタブのURLをモック
+    vi.mocked(chrome.tabs.query).mockImplementation((queryInfo, callback) => {
+      if (callback) {
+        callback([{ id: 1, url: 'https://twitch.tv/videos/12345', active: true, windowId: 1 } as unknown as chrome.tabs.Tab]);
+      }
+    });
+
+    await initPopup();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const list = document.getElementById('bookmark-list');
+    const filterCurrentBtn = document.getElementById('filter-current-btn');
+    const filterAllBtn = document.getElementById('filter-all-btn');
+
+    // デフォルト（この動画のみ）では、URLが一致する「1」のブックマーク1件のみが表示されること
+    expect(list?.children.length).toBe(1);
+    expect(list?.textContent).toContain('streamer_a');
+    expect(list?.textContent).not.toContain('streamer_b');
+
+    // 「すべて表示」ボタンをクリック
+    filterAllBtn?.click();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    // すべてのブックマーク（2件）が表示されること
+    expect(list?.children.length).toBe(2);
+    expect(list?.textContent).toContain('streamer_a');
+    expect(list?.textContent).toContain('streamer_b');
+
+    // 「この動画のみ」ボタンをクリック
+    filterCurrentBtn?.click();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    // 再度、一致する1件のみが表示されること
+    expect(list?.children.length).toBe(1);
+    expect(list?.textContent).toContain('streamer_a');
+    expect(list?.textContent).not.toContain('streamer_b');
+  });
 });
+

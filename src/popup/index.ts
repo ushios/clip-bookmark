@@ -12,7 +12,22 @@ import { validateVideoUrl, sanitizeString } from '../common/utils/security';
 const storageManager = StorageManager.getInstance();
 let currentSettings: Settings | null = null;
 let allBookmarks: Bookmark[] = []; // 全ブックマークのメモリ内キャッシュ
+let filteredBookmarks: Bookmark[] = []; // フィルター適用後のブックマークキャッシュ
+let activeFilter: 'current' | 'all' = 'current';
+let activeTabUrl: string | null = null;
 const PAGE_SIZE = 50;
+
+/**
+ * URLからクエリやハッシュを除去したベースURLを取得する
+ */
+function getBaseUrl(url: string): string {
+  try {
+    const urlObj = new URL(url);
+    return `${urlObj.origin}${urlObj.pathname}`;
+  } catch (e) {
+    return url;
+  }
+}
 
 /**
  * 秒数をTwitchのタイムスタンプパラメータ形式 (XhYmZs) に変換する
@@ -61,15 +76,30 @@ function renderBookmarkList(bookmarks: Bookmark[], append = false): void {
     listElement.innerHTML = '';
   }
 
-  // 最新順にソートしてキャッシュ
-  allBookmarks = [...bookmarks].sort((a, b) => {
+  // 1. 全ブックマークをメモリに保持
+  allBookmarks = [...bookmarks];
+
+  // 2. フィルター適用
+  let targetList = [...allBookmarks];
+  if (activeFilter === 'current' && activeTabUrl) {
+    const currentBase = getBaseUrl(activeTabUrl);
+    targetList = targetList.filter((b) => getBaseUrl(b.videoUrl) === currentBase);
+  }
+
+  // 3. 最新順にソートしてキャッシュ
+  filteredBookmarks = targetList.sort((a, b) => {
     const timeA = new Date(a.timestamp).getTime();
     const timeB = new Date(b.timestamp).getTime();
     return timeB - timeA;
   });
 
-  if (allBookmarks.length === 0) {
-    emptyElement.classList.remove('hidden');
+  if (filteredBookmarks.length === 0) {
+    if (!append) {
+      emptyElement.textContent = activeFilter === 'current'
+        ? 'この動画のブックマーク履歴はありません。'
+        : 'ブックマークがありません。 Alt+Shift+B またはチャットで打刻してください。';
+      emptyElement.classList.remove('hidden');
+    }
     return;
   }
 
@@ -77,8 +107,8 @@ function renderBookmarkList(bookmarks: Bookmark[], append = false): void {
 
   // スライス範囲の決定
   const start = append ? listElement.children.length : 0;
-  const end = Math.min(start + PAGE_SIZE, allBookmarks.length);
-  const displayList = allBookmarks.slice(start, end);
+  const end = Math.min(start + PAGE_SIZE, filteredBookmarks.length);
+  const displayList = filteredBookmarks.slice(start, end);
 
   if (displayList.length === 0) return;
 
@@ -149,10 +179,14 @@ function renderBookmarkList(bookmarks: Bookmark[], append = false): void {
       // 楽観的UI更新
       li.remove();
       allBookmarks = allBookmarks.filter((b) => b.id !== bookmark.id);
+      filteredBookmarks = filteredBookmarks.filter((b) => b.id !== bookmark.id);
       
       await storageManager.deleteBookmark(bookmark.id);
       
-      if (listElement.children.length === 0 && allBookmarks.length === 0) {
+      if (listElement.children.length === 0 && filteredBookmarks.length === 0) {
+        emptyElement.textContent = activeFilter === 'current'
+          ? 'この動画のブックマーク履歴はありません。'
+          : 'ブックマークがありません。 Alt+Shift+B またはチャットで打刻してください。';
         emptyElement.classList.remove('hidden');
       }
     };
@@ -234,6 +268,28 @@ function setupEventListeners(): void {
     };
   }
 
+  // 1-2. フィルター切り替えロジック
+  const filterCurrentBtn = document.getElementById('filter-current-btn');
+  const filterAllBtn = document.getElementById('filter-all-btn');
+
+  if (filterCurrentBtn && filterAllBtn) {
+    filterCurrentBtn.onclick = () => {
+      if (activeFilter === 'current') return;
+      activeFilter = 'current';
+      filterCurrentBtn.classList.add('active');
+      filterAllBtn.classList.remove('active');
+      renderBookmarkList(allBookmarks, false);
+    };
+
+    filterAllBtn.onclick = () => {
+      if (activeFilter === 'all') return;
+      activeFilter = 'all';
+      filterAllBtn.classList.add('active');
+      filterCurrentBtn.classList.remove('active');
+      renderBookmarkList(allBookmarks, false);
+    };
+  }
+
   // 2. 全件削除ボタン
   const clearAllBtn = document.getElementById('clear-all-btn');
   if (clearAllBtn) {
@@ -307,7 +363,7 @@ function setupEventListeners(): void {
         const currentListElement = document.getElementById('bookmark-list');
         const currentCount = currentListElement?.children.length || 0;
         
-        if (currentCount < allBookmarks.length) {
+        if (currentCount < filteredBookmarks.length) {
           renderBookmarkList(allBookmarks, true);
         }
       }
@@ -334,6 +390,14 @@ function setupEventListeners(): void {
  * ポップアップ起動時の初期化処理
  */
 export async function initPopup(): Promise<void> {
+  // 現在のアクティブなタブのURLを解決する
+  activeTabUrl = await new Promise<string | null>((resolve) => {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const activeTab = tabs[0];
+      resolve(activeTab?.url || null);
+    });
+  });
+
   setupEventListeners();
 
   const [bookmarks, settings] = await Promise.all([

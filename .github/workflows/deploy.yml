@@ -37,9 +37,7 @@ jobs:
         with:
           files: ./extension.zip
           name: Release ${{ github.ref_name }}
-          body: |
-            Chrome Web Store 手動アップロード用のビルド成果物です。
-            `extension.zip` をダウンロードしてストアにアップロードしてください。
+          generate_release_notes: true
           draft: false
           prerelease: false
         env:

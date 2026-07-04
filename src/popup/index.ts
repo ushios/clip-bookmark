@@ -176,11 +176,13 @@ function renderBookmarkList(bookmarks: Bookmark[], append = false): void {
 
     link.appendChild(infoDiv);
 
-    // 2. 再生時間バッジ
-    const timeBadge = document.createElement('span');
-    timeBadge.className = 'time-badge';
-    timeBadge.textContent = formatSecondsToTimeString(bookmark.relativeTime);
-    link.appendChild(timeBadge);
+    // 2. 再生時間バッジ (VOD動画のみ表示)
+    if (!bookmark.isLive) {
+      const timeBadge = document.createElement('span');
+      timeBadge.className = 'time-badge';
+      timeBadge.textContent = formatSecondsToTimeString(bookmark.relativeTime);
+      link.appendChild(timeBadge);
+    }
 
     li.appendChild(link);
 

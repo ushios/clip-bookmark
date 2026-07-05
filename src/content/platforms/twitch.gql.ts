@@ -28,6 +28,9 @@ const RESERVED_PATHS = new Set([
   'jobs',
   'turbo',
   'p',
+  'popout',
+  'moderator',
+  'embed',
 ]);
 
 export interface TwitchStreamInfo {

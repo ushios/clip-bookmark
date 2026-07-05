@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { BasePlatformAdapter } from '../../src/content/platforms/base.adapter';
 
 // テスト用の具象クラス
@@ -48,18 +48,49 @@ describe('TwitchAdapter', () => {
     // head内の既存のscriptタグをクリア
     const scripts = document.head.querySelectorAll('script');
     scripts.forEach(s => document.head.removeChild(s));
+    // テスト用URLをTwitchのチャンネルページに設定 (happy-dom)
+    (window as any).happyDOM?.setURL('https://www.twitch.tv/shroud');
   });
 
-  it('はライブ配信中であっても HTML メタデータから進行中の VOD ID を検出して VOD URL を返すこと', async () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  /** ライブ判定用インジケーターをDOMに追加するヘルパー */
+  function addLiveIndicator(): void {
+    const liveIndicator = document.createElement('div');
+    liveIndicator.setAttribute('data-a-target', 'player-live-indicator');
+    document.body.appendChild(liveIndicator);
+  }
+
+  /** GQL応答を返す fetch モックをグローバルに設定するヘルパー */
+  function stubGqlFetch(stream: { createdAt?: string; archiveVideo?: { id: string } | null } | null): ReturnType<typeof vi.fn> {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: { user: { stream } } }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    return fetchMock;
+  }
+
+  it('はライブ配信中、GQL APIから進行中のアーカイブVOD IDを取得して VOD URL を返すこと', async () => {
+    stubGqlFetch({ createdAt: '2026-07-05T10:00:00Z', archiveVideo: { id: '123456789' } });
+    addLiveIndicator();
+
+    const adapter = new TwitchAdapter();
+    const videoUrl = await adapter.getVideoUrl();
+    expect(videoUrl).toBe('https://www.twitch.tv/videos/123456789');
+  });
+
+  it('はGQL APIが失敗してもHTMLメタデータから進行中の VOD ID を検出して VOD URL を返すこと (フォールバック)', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network error')));
+
     // 進行中 VOD ID を含むダミーの script タグを作成
     const script = document.createElement('script');
     script.textContent = `window.__INITIAL_STATE__ = { "archiveVideo": { "id": "999888777" } };`;
     document.head.appendChild(script);
 
-    // ライブ判定用のインジケーターをDOMに追加
-    const liveIndicator = document.createElement('div');
-    liveIndicator.setAttribute('data-a-target', 'player-live-indicator');
-    document.body.appendChild(liveIndicator);
+    addLiveIndicator();
 
     const adapter = new TwitchAdapter();
     const isLive = await adapter.isLive();
@@ -67,5 +98,27 @@ describe('TwitchAdapter', () => {
 
     const videoUrl = await adapter.getVideoUrl();
     expect(videoUrl).toBe('https://www.twitch.tv/videos/999888777');
+  });
+
+  it('はライブ配信中、GQLの配信開始時刻から経過秒数を算出すること', async () => {
+    const startedAt = new Date(Date.now() - 90 * 1000).toISOString(); // 90秒前に配信開始
+    stubGqlFetch({ createdAt: startedAt, archiveVideo: { id: '123456789' } });
+    addLiveIndicator();
+
+    const adapter = new TwitchAdapter();
+    const time = await adapter.getCurrentTime();
+    expect(time).toBeGreaterThanOrEqual(90);
+    expect(time).toBeLessThanOrEqual(92); // テスト実行時間の誤差を許容
+  });
+
+  it('はGQL応答を同一インスタンス内でキャッシュし、fetch を1回しか呼ばないこと', async () => {
+    const startedAt = new Date(Date.now() - 90 * 1000).toISOString(); // 90秒前に配信開始
+    const fetchMock = stubGqlFetch({ createdAt: startedAt, archiveVideo: { id: '123456789' } });
+    addLiveIndicator();
+
+    const adapter = new TwitchAdapter();
+    await adapter.getCurrentTime();
+    await adapter.getVideoUrl();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

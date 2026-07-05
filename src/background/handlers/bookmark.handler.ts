@@ -41,6 +41,7 @@ export async function handleExtensionMessage(
       const channelName = sanitizeString(payload.channelName || 'Unknown Channel', 255);
       const title = sanitizeString(payload.title || 'Untitled Video', 255);
       const platform = sanitizeString(payload.platform || 'twitch', 50);
+      const memo = payload.memo ? sanitizeString(payload.memo, 100) : undefined;
 
       // 保存するブックマークの構築
       const bookmark: Bookmark = {
@@ -52,6 +53,7 @@ export async function handleExtensionMessage(
         timestamp: payload.timestamp || new Date().toISOString(),
         relativeTime,
         isLive: !!payload.isLive,
+        ...(memo ? { memo } : {}),
       };
 
       // StorageManager シングルトンを用いて保存

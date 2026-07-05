@@ -1,11 +1,34 @@
 import { BasePlatformAdapter } from './base.adapter';
 import { parseTimeStringToSeconds } from '../../common/utils/time';
+import { extractChannelLoginFromPath, fetchStreamInfo, TwitchStreamInfo } from './twitch.gql';
 
 /**
  * Twitch用の PlatformAdapter 実装
  * TwitchのビデオプレイヤーおよびDOMから必要な情報（再生時間、チャンネル名、タイトルなど）を抽出します。
  */
 export class TwitchAdapter extends BasePlatformAdapter {
+  /** GQL配信情報の取得結果キャッシュ（同一保存処理内での多重リクエスト防止） */
+  private streamInfoCache: { fetchedAt: number; info: TwitchStreamInfo | null } | null = null;
+
+  /** GQL配信情報キャッシュの有効期間（ミリ秒） */
+  private static readonly STREAM_INFO_TTL_MS = 60_000;
+
+  /**
+   * 進行中ライブ配信の情報（配信開始時刻・アーカイブVOD ID）をGQL APIから取得する
+   * 同一インスタンス内では一定時間キャッシュし、多重リクエストを防止する
+   */
+  private async getStreamInfo(): Promise<TwitchStreamInfo | null> {
+    const now = Date.now();
+    if (this.streamInfoCache && now - this.streamInfoCache.fetchedAt < TwitchAdapter.STREAM_INFO_TTL_MS) {
+      return this.streamInfoCache.info;
+    }
+
+    const login = extractChannelLoginFromPath(window.location.pathname);
+    const info = login ? await fetchStreamInfo(login) : null;
+    this.streamInfoCache = { fetchedAt: now, info };
+    return info;
+  }
+
   /**
    * 現在視聴中のコンテンツがライブ配信中かどうかを判定する
    * URLに "/videos/" が含まれていない場合、およびライブインジケータが存在する場合はライブと判定。
@@ -51,7 +74,19 @@ export class TwitchAdapter extends BasePlatformAdapter {
   public override async getCurrentTime(): Promise<number> {
     const live = await this.isLive();
     if (live) {
-      // 1. 配信開始日時 (startedAt) からの絶対経過秒数を算出 (最も正確)
+      // 1. GQL APIから取得した配信開始時刻 (createdAt) からの絶対経過秒数を算出 (最も正確)
+      const streamInfo = await this.getStreamInfo();
+      if (streamInfo?.createdAt) {
+        const startedAtDate = new Date(streamInfo.createdAt);
+        if (!isNaN(startedAtDate.getTime())) {
+          const elapsedSeconds = Math.floor((Date.now() - startedAtDate.getTime()) / 1000);
+          if (elapsedSeconds > 0) {
+            return elapsedSeconds;
+          }
+        }
+      }
+
+      // 2. ページ内メタデータの配信開始日時 (startedAt) からの経過秒数を算出 (フォールバック)
       const startedAt = this.getStreamStartedAt();
       if (startedAt) {
         const elapsedSeconds = Math.floor((Date.now() - startedAt.getTime()) / 1000);
@@ -60,7 +95,7 @@ export class TwitchAdapter extends BasePlatformAdapter {
         }
       }
 
-      // 2. プレイヤー外部の Uptime（配信経過時間）表示要素を探索
+      // 3. プレイヤー外部の Uptime（配信経過時間）表示要素を探索
       // プレイヤー内のシークバー（[data-a-target="player-seek-bar-current-time"]）は視聴開始からの時間なので除外する
       const uptimeSelectors = [
         '.live-time',
@@ -196,6 +231,13 @@ export class TwitchAdapter extends BasePlatformAdapter {
   public async getVideoUrl(): Promise<string> {
     const live = await this.isLive();
     if (live) {
+      // 1. GQL APIから進行中アーカイブVODのIDを取得 (最も確実)
+      const streamInfo = await this.getStreamInfo();
+      if (streamInfo?.archiveVideoId) {
+        return `https://www.twitch.tv/videos/${streamInfo.archiveVideoId}`;
+      }
+
+      // 2. ページ内メタデータからの検出 (フォールバック)
       const archiveVideoId = this.getArchiveVideoId();
       if (archiveVideoId) {
         return `https://www.twitch.tv/videos/${archiveVideoId}`;

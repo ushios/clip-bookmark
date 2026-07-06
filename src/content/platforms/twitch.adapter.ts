@@ -8,24 +8,34 @@ import { extractChannelLoginFromPath, fetchStreamInfo, TwitchStreamInfo } from '
  */
 export class TwitchAdapter extends BasePlatformAdapter {
   /** GQL配信情報の取得結果キャッシュ（同一保存処理内での多重リクエスト防止） */
-  private streamInfoCache: { fetchedAt: number; info: TwitchStreamInfo | null } | null = null;
+  private streamInfoCache: { login: string; fetchedAt: number; info: TwitchStreamInfo | null } | null = null;
 
   /** GQL配信情報キャッシュの有効期間（ミリ秒） */
   private static readonly STREAM_INFO_TTL_MS = 60_000;
 
   /**
    * 進行中ライブ配信の情報（配信開始時刻・アーカイブVOD ID）をGQL APIから取得する
-   * 同一インスタンス内では一定時間キャッシュし、多重リクエストを防止する
+   * 同一インスタンス内では一定時間キャッシュし、多重リクエストを防止する。
+   * TwitchはSPAでチャンネル遷移してもcontent scriptが生き続けるため、
+   * キャッシュは必ずチャンネルのログイン名に紐付けて別チャンネルへの流用を防ぐ。
    */
   private async getStreamInfo(): Promise<TwitchStreamInfo | null> {
+    const login = extractChannelLoginFromPath(window.location.pathname);
+    if (!login) {
+      return null;
+    }
+
     const now = Date.now();
-    if (this.streamInfoCache && now - this.streamInfoCache.fetchedAt < TwitchAdapter.STREAM_INFO_TTL_MS) {
+    if (
+      this.streamInfoCache &&
+      this.streamInfoCache.login === login &&
+      now - this.streamInfoCache.fetchedAt < TwitchAdapter.STREAM_INFO_TTL_MS
+    ) {
       return this.streamInfoCache.info;
     }
 
-    const login = extractChannelLoginFromPath(window.location.pathname);
-    const info = login ? await fetchStreamInfo(login) : null;
-    this.streamInfoCache = { fetchedAt: now, info };
+    const info = await fetchStreamInfo(login);
+    this.streamInfoCache = { login, fetchedAt: now, info };
     return info;
   }
 

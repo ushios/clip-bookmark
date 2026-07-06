@@ -121,4 +121,20 @@ describe('TwitchAdapter', () => {
     await adapter.getVideoUrl();
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
+
+  it('はSPA遷移でチャンネルが変わった場合、キャッシュを使わず新しいチャンネルの情報を取得すること', async () => {
+    const fetchMock = stubGqlFetch({ createdAt: '2026-07-05T00:00:00Z', archiveVideo: { id: '111111111' } });
+    addLiveIndicator();
+
+    const adapter = new TwitchAdapter();
+    await adapter.getVideoUrl(); // shroud の情報を取得しキャッシュ
+
+    // SPA遷移で別チャンネルへ移動 (content script は生き続ける)
+    (window as any).happyDOM?.setURL('https://www.twitch.tv/another_channel');
+    await adapter.getVideoUrl();
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const secondBody = fetchMock.mock.calls[1][1].body as string;
+    expect(secondBody).toContain('another_channel');
+  });
 });

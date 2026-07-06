@@ -17,6 +17,8 @@ describe('extractChannelLoginFromPath', () => {
     expect(extractChannelLoginFromPath('/directory/gaming')).toBeNull();
     expect(extractChannelLoginFromPath('/search')).toBeNull();
     expect(extractChannelLoginFromPath('/')).toBeNull();
+    expect(extractChannelLoginFromPath('/popout/shroud/chat')).toBeNull();
+    expect(extractChannelLoginFromPath('/moderator/shroud')).toBeNull();
   });
 
   it('はログイン名として不正な文字を含むパスに対して null を返すこと', () => {

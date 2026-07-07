@@ -372,5 +372,164 @@ describe('User Story 3: Popup UI & Settings', () => {
     expect(memoSpan.textContent).toBe('更新されたメモ');
     expect(StorageManager.prototype.updateBookmarkMemo).toHaveBeenCalledWith('1', '更新されたメモ');
   });
+
+  describe('タイムスタンプのクリップボードコピー (Issue #11)', () => {
+    let writeTextMock: ReturnType<typeof vi.fn>;
+
+    beforeEach(() => {
+      writeTextMock = vi.fn().mockResolvedValue(undefined);
+      Object.defineProperty(navigator, 'clipboard', {
+        value: { writeText: writeTextMock },
+        configurable: true,
+      });
+    });
+
+    it('はVODブックマークのコピーボタンでタイムスタンプ付き完全URLをコピーすること', async () => {
+      await initPopup();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      // テスト間のタブモック干渉を防ぐため、「すべて表示」に切り替える
+      const filterAllBtn = document.getElementById('filter-all-btn');
+      filterAllBtn?.click();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      const list = document.getElementById('bookmark-list');
+      const vodItem = list?.querySelector('[data-id="1"]') as HTMLElement;
+      const copyBtn = vodItem.querySelector('.copy-btn') as HTMLElement;
+      expect(copyBtn).not.toBeNull();
+
+      copyBtn.click();
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      // videoUrl が /videos/ 形式なので、タイムスタンプ付き完全URLがコピーされる
+      expect(writeTextMock).toHaveBeenCalledWith('https://twitch.tv/videos/12345?t=1h01m40s');
+    });
+
+    it('はチャンネルURLしか持たないブックマークでは時間パラメータのみコピーすること', async () => {
+      await initPopup();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      // 「すべて表示」に切り替えてライブブックマーク (id: 2) を表示
+      const filterAllBtn = document.getElementById('filter-all-btn');
+      filterAllBtn?.click();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      const list = document.getElementById('bookmark-list');
+      const liveItem = list?.querySelector('[data-id="2"]') as HTMLElement;
+      const copyBtn = liveItem.querySelector('.copy-btn') as HTMLElement;
+      expect(copyBtn).not.toBeNull();
+
+      copyBtn.click();
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      // relativeTime 90秒 → 0h01m30s
+      expect(writeTextMock).toHaveBeenCalledWith('0h01m30s');
+    });
+  });
+
+  describe('VOD IDの手動指定 (Issue #10)', () => {
+    beforeEach(() => {
+      vi.spyOn(StorageManager.prototype, 'updateBookmarkVideoUrl').mockResolvedValue(undefined);
+    });
+
+    it('はVOD未設定のブックマークに警告アイコンを表示すること', async () => {
+      await initPopup();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      const filterAllBtn = document.getElementById('filter-all-btn');
+      filterAllBtn?.click();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      const list = document.getElementById('bookmark-list');
+      // id: 2 はチャンネルURL (VOD ID未設定) なので警告アイコンあり
+      const liveItem = list?.querySelector('[data-id="2"]') as HTMLElement;
+      expect(liveItem.querySelector('.vod-warning')).not.toBeNull();
+
+      // id: 1 は /videos/ URLなので警告アイコンなし
+      const vodItem = list?.querySelector('[data-id="1"]') as HTMLElement;
+      expect(vodItem.querySelector('.vod-warning')).toBeNull();
+    });
+
+    it('は編集ボタンからVOD IDを入力して保存できること', async () => {
+      await initPopup();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      const filterAllBtn = document.getElementById('filter-all-btn');
+      filterAllBtn?.click();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      const list = document.getElementById('bookmark-list');
+      const liveItem = list?.querySelector('[data-id="2"]') as HTMLElement;
+      const editBtn = liveItem.querySelector('.vod-edit-btn') as HTMLElement;
+      expect(editBtn).not.toBeNull();
+
+      // 編集ボタンをクリックして入力欄を表示
+      editBtn.click();
+      const vodInput = liveItem.querySelector('.vod-input') as HTMLInputElement;
+      expect(vodInput).not.toBeNull();
+      expect(vodInput.classList.contains('hidden')).toBe(false);
+
+      // VOD IDを入力してEnterで保存
+      vodInput.value = '123456789';
+      vodInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect(StorageManager.prototype.updateBookmarkVideoUrl).toHaveBeenCalledWith(
+        '2',
+        'https://www.twitch.tv/videos/123456789',
+      );
+    });
+
+    it('はVOD URLを貼り付けてもIDが抽出されて保存できること', async () => {
+      await initPopup();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      const filterAllBtn = document.getElementById('filter-all-btn');
+      filterAllBtn?.click();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      const list = document.getElementById('bookmark-list');
+      const liveItem = list?.querySelector('[data-id="2"]') as HTMLElement;
+      const editBtn = liveItem.querySelector('.vod-edit-btn') as HTMLElement;
+      editBtn.click();
+
+      const vodInput = liveItem.querySelector('.vod-input') as HTMLInputElement;
+      vodInput.value = 'https://www.twitch.tv/videos/987654321?t=0h10m00s';
+      vodInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect(StorageManager.prototype.updateBookmarkVideoUrl).toHaveBeenCalledWith(
+        '2',
+        'https://www.twitch.tv/videos/987654321',
+      );
+    });
+
+    it('は不正な入力の場合は保存せず拒否すること', async () => {
+      const alertMock = vi.fn();
+      vi.stubGlobal('alert', alertMock);
+
+      await initPopup();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      const filterAllBtn = document.getElementById('filter-all-btn');
+      filterAllBtn?.click();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      const list = document.getElementById('bookmark-list');
+      const liveItem = list?.querySelector('[data-id="2"]') as HTMLElement;
+      const editBtn = liveItem.querySelector('.vod-edit-btn') as HTMLElement;
+      editBtn.click();
+
+      const vodInput = liveItem.querySelector('.vod-input') as HTMLInputElement;
+      vodInput.value = 'https://evil.com/videos/123';
+      vodInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      expect(StorageManager.prototype.updateBookmarkVideoUrl).not.toHaveBeenCalled();
+      expect(alertMock).toHaveBeenCalled();
+
+      vi.unstubAllGlobals();
+    });
+  });
 });
 

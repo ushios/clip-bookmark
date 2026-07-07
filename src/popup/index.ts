@@ -2,8 +2,9 @@ import { StorageManager } from '../common/storage/storage.manager';
 import { Bookmark } from '../common/models/bookmark.model';
 import { Settings } from '../common/models/settings.model';
 import { MESSAGE_ACTIONS } from '../common/models/messages';
-import { formatSecondsToTimeString } from '../common/utils/time';
+import { formatSecondsToTimeString, formatSecondsToTwitchTimestamp } from '../common/utils/time';
 import { validateVideoUrl, sanitizeString } from '../common/utils/security';
+import { parseVodIdInput, buildVodUrl, buildJumpUrl } from '../common/utils/vod';
 
 /**
  * ポップアップUIの各種イベントハンドリングおよび描画を制御するモジュール
@@ -34,29 +35,10 @@ function getBaseUrl(url: string): string {
 }
 
 /**
- * 秒数をTwitchのタイムスタンプパラメータ形式 (XhYmZs) に変換する
- */
-function toTwitchTimestamp(seconds: number): string {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = seconds % 60;
-
-  const pad = (num: number) => String(num).padStart(2, '0');
-
-  return `${hours}h${pad(minutes)}m${pad(secs)}s`;
-}
-
-/**
  * 安全なURL遷移処理
  */
 function navigateToBookmark(bookmark: Bookmark): void {
-  let targetUrl = bookmark.videoUrl;
-
-  if (bookmark.videoUrl.includes('/videos/') && bookmark.relativeTime >= 0) {
-    const timestampParam = `t=${toTwitchTimestamp(bookmark.relativeTime)}`;
-    const separator = bookmark.videoUrl.includes('?') ? '&' : '?';
-    targetUrl = `${bookmark.videoUrl}${separator}${timestampParam}`;
-  }
+  const targetUrl = buildJumpUrl(bookmark.videoUrl, bookmark.relativeTime);
 
   if (validateVideoUrl(targetUrl)) {
     chrome.tabs.create({ url: targetUrl });
@@ -161,6 +143,16 @@ function renderBookmarkList(bookmarks: Bookmark[], append = false): void {
       metaDiv.appendChild(liveBadge);
     }
 
+    // VOD ID未設定（チャンネルURLのまま）の場合、アーカイブへ飛べない旨の警告を表示
+    const hasVodUrl = bookmark.videoUrl.includes('/videos/');
+    if (!hasVodUrl) {
+      const warningSpan = document.createElement('span');
+      warningSpan.className = 'vod-warning';
+      warningSpan.textContent = '⚠';
+      warningSpan.title = 'アーカイブのVOD IDが未設定のため、アーカイブの該当位置へジャンプできません。✎ボタンからVOD IDを設定してください。';
+      metaDiv.appendChild(warningSpan);
+    }
+
     const timeSpan = document.createElement('span');
     timeSpan.className = 'timestamp';
     timeSpan.textContent = new Date(bookmark.timestamp).toLocaleString();
@@ -196,7 +188,42 @@ function renderBookmarkList(bookmarks: Bookmark[], append = false): void {
 
     li.appendChild(link);
 
-    // 2.5 メモエリアの追加
+    // 2.2 アクションボタン群（コピー / VOD ID編集 / 削除）
+    const actionsDiv = document.createElement('div');
+    actionsDiv.className = 'item-actions';
+
+    // コピーボタン: VOD URLがあればタイムスタンプ付き完全URL、なければ t= パラメータ値をコピー
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'copy-btn icon-btn';
+    copyBtn.textContent = '📋';
+    copyBtn.title = hasVodUrl
+      ? 'タイムスタンプ付きURLをコピー'
+      : `タイムスタンプ (${formatSecondsToTwitchTimestamp(bookmark.relativeTime)}) をコピー`;
+    copyBtn.onclick = async (e) => {
+      e.stopPropagation();
+      const text = hasVodUrl
+        ? buildJumpUrl(bookmark.videoUrl, bookmark.relativeTime)
+        : formatSecondsToTwitchTimestamp(bookmark.relativeTime);
+      try {
+        await navigator.clipboard.writeText(text);
+        copyBtn.textContent = '✓';
+        setTimeout(() => {
+          copyBtn.textContent = '📋';
+        }, 1500);
+      } catch (error) {
+        console.error('Failed to copy to clipboard:', error);
+      }
+    };
+    actionsDiv.appendChild(copyBtn);
+
+    // VOD ID編集ボタン
+    const vodEditBtn = document.createElement('button');
+    vodEditBtn.className = 'vod-edit-btn icon-btn';
+    vodEditBtn.textContent = '✎';
+    vodEditBtn.title = 'アーカイブのVOD IDを設定・修正';
+    actionsDiv.appendChild(vodEditBtn);
+
+    li.appendChild(actionsDiv);
     const memoDiv = document.createElement('div');
     memoDiv.className = 'memo-container';
 
@@ -263,6 +290,69 @@ function renderBookmarkList(bookmarks: Bookmark[], append = false): void {
     memoDiv.appendChild(memoInput);
     li.appendChild(memoDiv);
 
+    // 2.7 VOD ID入力エリア（編集ボタンで表示切り替え）
+    const vodEditContainer = document.createElement('div');
+    vodEditContainer.className = 'vod-edit-container hidden';
+
+    const vodInput = document.createElement('input');
+    vodInput.type = 'text';
+    vodInput.className = 'vod-input';
+    vodInput.placeholder = 'VOD ID または https://www.twitch.tv/videos/... を入力してEnterで保存';
+    vodEditContainer.appendChild(vodInput);
+
+    const closeVodEdit = () => {
+      vodEditContainer.classList.add('hidden');
+      vodInput.value = '';
+    };
+
+    vodEditBtn.onclick = (e) => {
+      e.stopPropagation();
+      if (vodEditContainer.classList.contains('hidden')) {
+        vodEditContainer.classList.remove('hidden');
+        // 既存のVOD URLがあれば初期値として表示
+        vodInput.value = hasVodUrl ? bookmark.videoUrl : '';
+        vodInput.focus();
+      } else {
+        closeVodEdit();
+      }
+    };
+
+    const saveVodId = async () => {
+      const rawInput = vodInput.value.trim();
+      if (!rawInput) {
+        closeVodEdit();
+        return;
+      }
+
+      const vodId = parseVodIdInput(rawInput);
+      if (!vodId) {
+        alert('VOD ID（数字）または https://www.twitch.tv/videos/... 形式のURLを入力してください。');
+        return;
+      }
+
+      const newVideoUrl = buildVodUrl(vodId);
+      closeVodEdit();
+
+      await storageManager.updateBookmarkVideoUrl(bookmark.id, newVideoUrl);
+
+      // メモリ内キャッシュを更新して再描画（アーカイブ紐付けにより isLive は false になる）
+      const updatedBookmark = { ...bookmark, videoUrl: newVideoUrl, isLive: false };
+      allBookmarks = allBookmarks.map((b) => (b.id === bookmark.id ? updatedBookmark : b));
+      renderBookmarkList(allBookmarks, false);
+    };
+
+    vodInput.onkeydown = (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        saveVodId();
+      }
+      if (e.key === 'Escape') {
+        closeVodEdit();
+      }
+    };
+
+    li.appendChild(vodEditContainer);
+
     // 3. 削除ボタン
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'delete-btn';
@@ -283,7 +373,7 @@ function renderBookmarkList(bookmarks: Bookmark[], append = false): void {
         emptyElement.classList.remove('hidden');
       }
     };
-    li.appendChild(deleteBtn);
+    actionsDiv.appendChild(deleteBtn);
 
     fragment.appendChild(li);
   });

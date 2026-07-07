@@ -204,11 +204,17 @@ ul {
 .bookmark-link {
   text-decoration: none;
   cursor: pointer;
-  width: calc(100% - 24px);
+  width: calc(100% - 84px);
   display: flex;
   align-items: center;
   justify-content: space-between;
   overflow: hidden;
+}
+
+/* アクションボタン群（コピー / VOD ID編集 / 削除） */
+.item-actions {
+  display: flex;
+  align-items: center;
 }
 
 .bookmark-meta {
@@ -366,7 +372,7 @@ input[type="text"]:focus {
   color: var(--text-muted);
   cursor: pointer;
   font-size: 16px;
-  padding: 4px 8px;
+  padding: 4px 4px;
   border-radius: 4px;
   transition: all 0.2s ease;
 }
@@ -374,6 +380,49 @@ input[type="text"]:focus {
 .delete-btn:hover {
   color: var(--danger-color);
   background-color: rgba(235, 4, 0, 0.1);
+}
+
+.icon-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px 4px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.icon-btn:hover {
+  color: var(--text-color);
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+/* VOD ID未設定の警告アイコン */
+.vod-warning {
+  color: #ffca28;
+  font-size: 12px;
+  cursor: help;
+}
+
+/* VOD ID入力エリア */
+.vod-edit-container {
+  width: 100%;
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--border-color);
+}
+
+.vod-input {
+  width: 100%;
+  box-sizing: border-box;
+  background-color: var(--bg-color);
+  border: 1px solid var(--primary-color);
+  border-radius: 4px;
+  color: var(--text-color);
+  padding: 4px 8px;
+  font-size: 11px;
+  outline: none;
 }
 
 /* タグリスト */

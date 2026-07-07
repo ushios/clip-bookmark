@@ -5,6 +5,7 @@ import { MESSAGE_ACTIONS } from '../common/models/messages';
 import { formatSecondsToTimeString, formatSecondsToTwitchTimestamp } from '../common/utils/time';
 import { validateVideoUrl, sanitizeString } from '../common/utils/security';
 import { parseVodIdInput, buildVodUrl, buildJumpUrl } from '../common/utils/vod';
+import { getChannelLoginFromUrl } from '../common/utils/channel';
 
 /**
  * ポップアップUIの各種イベントハンドリングおよび描画を制御するモジュール
@@ -19,6 +20,7 @@ let activeFilter: 'current' | 'all' = 'current';
 let activeTabUrl: string | null = null;
 let activeTabTitle: string | null = null;
 let activeTabChannel: string | null = null;
+let activeTabChannelLogin: string | null = null;
 let activeTabIsLive: boolean = false;
 const PAGE_SIZE = 50;
 
@@ -32,6 +34,29 @@ function getBaseUrl(url: string): string {
   } catch (e) {
     return url;
   }
+}
+
+/**
+ * ブックマークが現在のアクティブタブと同一チャンネルかどうかを判定する
+ * チャンネルログイン名（URL由来の配信者ID）を優先して比較し、
+ * 旧データにはvideoUrlからの導出やチャンネル名の大文字小文字を無視した比較でフォールバックする
+ */
+function isSameChannelAsActiveTab(bookmark: Bookmark): boolean {
+  if (activeTabChannelLogin) {
+    if (bookmark.channelLogin) {
+      return bookmark.channelLogin === activeTabChannelLogin;
+    }
+    // 旧データ互換: videoUrlがチャンネルURL形式ならログイン名を導出して比較
+    const loginFromUrl = getChannelLoginFromUrl(bookmark.videoUrl);
+    if (loginFromUrl) {
+      return loginFromUrl === activeTabChannelLogin;
+    }
+  }
+  // 最終フォールバック: チャンネル名の大文字小文字を無視した比較
+  if (activeTabChannel) {
+    return bookmark.channelName.toLowerCase() === activeTabChannel.toLowerCase();
+  }
+  return false;
 }
 
 /**
@@ -68,17 +93,20 @@ function renderBookmarkList(bookmarks: Bookmark[], append = false): void {
   // 2. フィルター適用
   let targetList = [...allBookmarks];
   if (activeFilter === 'current') {
-    if (activeTabIsLive && activeTabChannel) {
-      // ライブ配信中の場合：チャンネル名と現在の配信タイトルが一致するブックマークのみを表示
+    const currentBase = activeTabUrl ? getBaseUrl(activeTabUrl) : null;
+    if (activeTabIsLive && (activeTabChannelLogin || activeTabChannel)) {
+      // ライブ配信中の場合：同一配信のVOD URL一致、または同一チャンネルのライブ打刻を表示
+      // (タイトルやチャンネル表示名は取得タイミングで揺れるため比較に使わない)
       targetList = targetList.filter((b) => {
-        return b.isLive && 
-               b.channelName === activeTabChannel && 
-               b.title === activeTabTitle;
+        if (currentBase && getBaseUrl(b.videoUrl) === currentBase) {
+          return true;
+        }
+        return b.isLive && isSameChannelAsActiveTab(b);
       });
-    } else if (activeTabUrl) {
+    } else if (currentBase) {
       // VOD（アーカイブ動画）の場合：動画ID（ベースURL）が一致するブックマークのみを表示
-      const currentBase = getBaseUrl(activeTabUrl);
-      targetList = targetList.filter((b) => !b.isLive && getBaseUrl(b.videoUrl) === currentBase);
+      // ライブ中に打刻されたもの (isLive=true) も同一VODなら表示対象に含める
+      targetList = targetList.filter((b) => getBaseUrl(b.videoUrl) === currentBase);
     }
   }
 
@@ -587,6 +615,7 @@ export async function initPopup(): Promise<void> {
   activeTabUrl = null;
   activeTabTitle = null;
   activeTabChannel = null;
+  activeTabChannelLogin = null;
   activeTabIsLive = false;
 
   // 現在のアクティブなタブを検索
@@ -610,6 +639,9 @@ export async function initPopup(): Promise<void> {
             activeTabUrl = response.videoUrl || activeTab.url;
             activeTabTitle = response.title || null;
             activeTabChannel = response.channelName || null;
+            // ログイン名はContent Scriptの応答を優先し、なければタブURLから導出
+            activeTabChannelLogin =
+              response.channelLogin || getChannelLoginFromUrl(activeTab.url || '') || null;
             activeTabIsLive = !!response.isLive;
           }
           resolve();

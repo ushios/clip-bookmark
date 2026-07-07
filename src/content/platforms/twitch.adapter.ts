@@ -185,6 +185,45 @@ export class TwitchAdapter extends BasePlatformAdapter {
   }
 
   /**
+   * チャンネルのログイン名（URL由来の配信者ID）を小文字で取得する
+   * ライブ配信（チャンネルページ）の場合はURLの第1パスから、
+   * VODページの場合はチャンネルリンクのhrefから抽出する
+   */
+  public async getChannelLogin(): Promise<string | null> {
+    // 1. チャンネルページ（ライブ）の場合はURLパスから抽出
+    const loginFromPath = extractChannelLoginFromPath(window.location.pathname);
+    if (loginFromPath) {
+      return loginFromPath.toLowerCase();
+    }
+
+    // 2. VODページの場合はチャンネルリンクのhrefから抽出
+    const channelLinkSelectors = [
+      'a[data-a-target="user-channel-link"]',
+      'a.channel-header__user-avatar',
+      '.channel-info-bar-metadata-user-channel-link',
+      '.metadata-layout-area a[href^="/"]',
+    ];
+
+    for (const selector of channelLinkSelectors) {
+      const element = document.querySelector(selector);
+      const href = element?.getAttribute('href');
+      if (href) {
+        try {
+          const pathname = href.startsWith('http') ? new URL(href).pathname : href;
+          const login = extractChannelLoginFromPath(pathname);
+          if (login) {
+            return login.toLowerCase();
+          }
+        } catch (e) {
+          // hrefがURLとして不正な場合は次のセレクタを試す
+        }
+      }
+    }
+
+    return null;
+  }
+
+  /**
    * 動画または配信のタイトルを取得する
    */
   public async getVideoTitle(): Promise<string> {

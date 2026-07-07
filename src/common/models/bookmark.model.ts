@@ -8,6 +8,8 @@ export interface Bookmark {
   readonly platform: 'twitch' | 'youtube' | string;
   /** 配信者またはチャンネルの名前 */
   readonly channelName: string;
+  /** チャンネルのログイン名（URL由来の配信者ID、小文字）。旧バージョンで保存されたデータには存在しない */
+  readonly channelLogin?: string;
   /** 配信または動画（VOD）のタイトル */
   readonly title: string;
   /** 動画（VOD）のベースURL、またはライブ配信のチャンネルURL */

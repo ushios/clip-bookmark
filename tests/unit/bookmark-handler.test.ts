@@ -62,4 +62,24 @@ describe('handleExtensionMessage (SAVE_BOOKMARK)', () => {
     const savedBookmarks = setCalls[setCalls.length - 1][0].bookmarks;
     expect(savedBookmarks[0].memo).toBeUndefined();
   });
+
+  it('はchannelLoginを小文字に正規化して保存すること', async () => {
+    const sendResponse = vi.fn();
+    await handleExtensionMessage(buildSaveMessage({ channelLogin: 'AtataDayo' }) as any, validSender, sendResponse);
+
+    expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
+    const setCalls = (chrome.storage.local.set as any).mock.calls;
+    const savedBookmarks = setCalls[setCalls.length - 1][0].bookmarks;
+    expect(savedBookmarks[0].channelLogin).toBe('atatadayo');
+  });
+
+  it('は不正な形式のchannelLoginは保存しないこと', async () => {
+    const sendResponse = vi.fn();
+    await handleExtensionMessage(buildSaveMessage({ channelLogin: '不正な"ログイン' }) as any, validSender, sendResponse);
+
+    expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
+    const setCalls = (chrome.storage.local.set as any).mock.calls;
+    const savedBookmarks = setCalls[setCalls.length - 1][0].bookmarks;
+    expect(savedBookmarks[0].channelLogin).toBeUndefined();
+  });
 });

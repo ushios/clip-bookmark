@@ -356,6 +356,165 @@ describe('User Story 3: Popup UI & Settings', () => {
     expect(list?.textContent).not.toContain('streamer_a');
   });
 
+  describe('「この動画のみ」フィルタのチャンネルID(login)ベース判定', () => {
+    it('はライブ視聴中、タイトルやチャンネル表示名が変わっていても同一チャンネルのライブブックマークを表示すること', async () => {
+      // ライブ中に打刻したブックマーク（VOD URL保存済み・当時のタイトル・日本語表示名）
+      const liveBookmarks: Bookmark[] = [
+        {
+          id: '10',
+          platform: 'twitch',
+          channelName: 'あたただよ', // 打刻時はDOMから日本語表示名が取れた
+          channelLogin: 'atatadayo',
+          title: '古いタイトル',
+          videoUrl: 'https://www.twitch.tv/videos/555000111',
+          timestamp: new Date().toISOString(),
+          relativeTime: 300,
+          isLive: true,
+        },
+        {
+          id: '11',
+          platform: 'twitch',
+          channelName: 'other_channel',
+          channelLogin: 'other_channel',
+          title: '別チャンネルの配信',
+          videoUrl: 'https://www.twitch.tv/other_channel',
+          timestamp: new Date().toISOString(),
+          relativeTime: 100,
+          isLive: true,
+        },
+      ];
+      vi.spyOn(StorageManager.prototype, 'getBookmarks').mockResolvedValue(liveBookmarks);
+
+      vi.mocked(chrome.tabs.query).mockImplementation((queryInfo, callback) => {
+        if (callback) {
+          callback([{ id: 1, url: 'https://www.twitch.tv/atatadayo', active: true, windowId: 1 } as unknown as chrome.tabs.Tab]);
+        }
+      });
+
+      // ポップアップを開いた時点では、タイトルが変更され表示名も英語表記になっている
+      vi.mocked(chrome.tabs.sendMessage).mockImplementation((tabId, message, options, responseCallback) => {
+        const callback = typeof options === 'function' ? options : responseCallback;
+        if (callback) {
+          callback({
+            success: true,
+            videoUrl: 'https://www.twitch.tv/atatadayo',
+            title: '新しいタイトル',
+            channelName: 'Atatadayo',
+            channelLogin: 'atatadayo',
+            isLive: true,
+          });
+        }
+      });
+
+      await initPopup();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      const list = document.getElementById('bookmark-list');
+      expect(list?.children.length).toBe(1);
+      expect(list?.textContent).toContain('古いタイトル');
+      expect(list?.textContent).not.toContain('別チャンネルの配信');
+    });
+
+    it('はレスポンスにchannelLoginがなくても、タブURLからログイン名を導出して判定できること', async () => {
+      // 旧バージョンで保存されたchannelLoginなしのブックマーク（チャンネルURLのまま）
+      const legacyBookmarks: Bookmark[] = [
+        {
+          id: '20',
+          platform: 'twitch',
+          channelName: 'あたただよ',
+          title: '古いタイトル',
+          videoUrl: 'https://www.twitch.tv/atatadayo',
+          timestamp: new Date().toISOString(),
+          relativeTime: 300,
+          isLive: true,
+        },
+      ];
+      vi.spyOn(StorageManager.prototype, 'getBookmarks').mockResolvedValue(legacyBookmarks);
+
+      vi.mocked(chrome.tabs.query).mockImplementation((queryInfo, callback) => {
+        if (callback) {
+          callback([{ id: 1, url: 'https://www.twitch.tv/atatadayo', active: true, windowId: 1 } as unknown as chrome.tabs.Tab]);
+        }
+      });
+
+      vi.mocked(chrome.tabs.sendMessage).mockImplementation((tabId, message, options, responseCallback) => {
+        const callback = typeof options === 'function' ? options : responseCallback;
+        if (callback) {
+          callback({
+            success: true,
+            videoUrl: 'https://www.twitch.tv/videos/555000111', // GQLで進行中VOD URLが取れている
+            title: '新しいタイトル',
+            channelName: 'Atatadayo',
+            isLive: true,
+          });
+        }
+      });
+
+      await initPopup();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      const list = document.getElementById('bookmark-list');
+      expect(list?.children.length).toBe(1);
+      expect(list?.textContent).toContain('古いタイトル');
+    });
+
+    it('はアーカイブ視聴中、ライブ中に打刻した同一VODのブックマーク(isLive=true)も表示すること', async () => {
+      const archiveBookmarks: Bookmark[] = [
+        {
+          id: '30',
+          platform: 'twitch',
+          channelName: 'あたただよ',
+          channelLogin: 'atatadayo',
+          title: 'ライブ中に打刻',
+          videoUrl: 'https://www.twitch.tv/videos/555000111',
+          timestamp: new Date().toISOString(),
+          relativeTime: 300,
+          isLive: true, // ライブ中の打刻フラグ
+        },
+        {
+          id: '31',
+          platform: 'twitch',
+          channelName: 'あたただよ',
+          channelLogin: 'atatadayo',
+          title: '別のVODで打刻',
+          videoUrl: 'https://www.twitch.tv/videos/999999999',
+          timestamp: new Date().toISOString(),
+          relativeTime: 50,
+          isLive: false,
+        },
+      ];
+      vi.spyOn(StorageManager.prototype, 'getBookmarks').mockResolvedValue(archiveBookmarks);
+
+      vi.mocked(chrome.tabs.query).mockImplementation((queryInfo, callback) => {
+        if (callback) {
+          callback([{ id: 1, url: 'https://www.twitch.tv/videos/555000111', active: true, windowId: 1 } as unknown as chrome.tabs.Tab]);
+        }
+      });
+
+      vi.mocked(chrome.tabs.sendMessage).mockImplementation((tabId, message, options, responseCallback) => {
+        const callback = typeof options === 'function' ? options : responseCallback;
+        if (callback) {
+          callback({
+            success: true,
+            videoUrl: 'https://www.twitch.tv/videos/555000111',
+            title: 'アーカイブ',
+            channelName: 'Atatadayo',
+            channelLogin: 'atatadayo',
+            isLive: false,
+          });
+        }
+      });
+
+      await initPopup();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      const list = document.getElementById('bookmark-list');
+      expect(list?.children.length).toBe(1);
+      expect(list?.textContent).toContain('ライブ中に打刻');
+      expect(list?.textContent).not.toContain('別のVODで打刻');
+    });
+  });
+
   it('はブックマークのメモを表示し、インライン編集して保存できること', async () => {
     // 既存のブックマークにメモを設定 (readonly制約をキャストで回避)
     (mockBookmarks[0] as any).memo = 'テストのメモ';

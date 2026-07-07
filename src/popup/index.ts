@@ -224,7 +224,7 @@ function renderBookmarkList(bookmarks: Bookmark[], append = false): void {
     vodEditBtn.title = 'アーカイブのVOD IDを設定・修正';
     actionsDiv.appendChild(vodEditBtn);
 
-    li.appendChild(actionsDiv);
+    // 2.5 メモエリアの追加
     const memoDiv = document.createElement('div');
     memoDiv.className = 'memo-container';
 
@@ -290,6 +290,9 @@ function renderBookmarkList(bookmarks: Bookmark[], append = false): void {
     memoDiv.appendChild(memoSpan);
     memoDiv.appendChild(memoInput);
     li.appendChild(memoDiv);
+
+    // 2.6 アクションボタン行はメモの下に配置
+    li.appendChild(actionsDiv);
 
     // 2.7 VOD ID入力エリア（編集ボタンで表示切り替え）
     const vodEditContainer = document.createElement('div');

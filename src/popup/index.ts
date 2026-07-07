@@ -198,12 +198,13 @@ function renderBookmarkList(bookmarks: Bookmark[], append = false): void {
     copyBtn.textContent = '📋';
     copyBtn.title = hasVodUrl
       ? 'タイムスタンプ付きURLをコピー'
-      : `タイムスタンプ (${formatSecondsToTwitchTimestamp(bookmark.relativeTime)}) をコピー`;
+      : `タイムスタンプ (?t=${formatSecondsToTwitchTimestamp(bookmark.relativeTime)}) をコピー`;
     copyBtn.onclick = async (e) => {
       e.stopPropagation();
+      // VOD URL未設定の場合は、アーカイブURLの末尾にそのまま貼り付けられる ?t= 形式でコピーする
       const text = hasVodUrl
         ? buildJumpUrl(bookmark.videoUrl, bookmark.relativeTime)
-        : formatSecondsToTwitchTimestamp(bookmark.relativeTime);
+        : `?t=${formatSecondsToTwitchTimestamp(bookmark.relativeTime)}`;
       try {
         await navigator.clipboard.writeText(text);
         copyBtn.textContent = '✓';

@@ -449,8 +449,8 @@ describe('User Story 3: Popup UI & Settings', () => {
       copyBtn.click();
       await new Promise((resolve) => setTimeout(resolve, 10));
 
-      // relativeTime 90秒 → 0h01m30s
-      expect(writeTextMock).toHaveBeenCalledWith('0h01m30s');
+      // relativeTime 90秒 → URL末尾にそのまま貼り付けられる ?t= 形式
+      expect(writeTextMock).toHaveBeenCalledWith('?t=0h01m30s');
     });
   });
 

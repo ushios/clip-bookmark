@@ -46,3 +46,22 @@ export function formatSecondsToTimeString(seconds: number): string {
 
   return `${pad(hours)}:${pad(minutes)}:${pad(secs)}`;
 }
+
+/**
+ * 秒数をTwitchのタイムスタンプパラメータ形式 (XhYYmZZs) にフォーマットする
+ * @param seconds 秒数
+ * @returns フォーマットされたタイムスタンプ文字列 (例: "1h23m45s")
+ */
+export function formatSecondsToTwitchTimestamp(seconds: number): string {
+  if (seconds <= 0 || isNaN(seconds)) {
+    return '0h00m00s';
+  }
+
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+
+  const pad = (num: number) => String(num).padStart(2, '0');
+
+  return `${hours}h${pad(minutes)}m${pad(secs)}s`;
+}

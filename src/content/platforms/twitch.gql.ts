@@ -7,53 +7,21 @@
  * 呼び出し側は必ず null 返却時のフォールバック処理を持つこと。
  */
 
+import { isValidChannelLogin, extractChannelLoginFromPath } from '../../common/utils/channel';
+
 export const TWITCH_GQL_ENDPOINT = 'https://gql.twitch.tv/gql';
 
 /** Twitch Webサイト自身が使用している公開 Client-ID */
 export const TWITCH_WEB_CLIENT_ID = 'kimne78kx3ncx6brgo4mv6wki5h1ko';
 
-/** Twitchのログイン名として妥当な形式（英数字とアンダースコアのみ） */
-const VALID_LOGIN_PATTERN = /^[a-zA-Z0-9_]{1,50}$/;
-
-/** チャンネルページ以外の予約済み第1パスセグメント */
-const RESERVED_PATHS = new Set([
-  'videos',
-  'directory',
-  'search',
-  'settings',
-  'subscriptions',
-  'wallet',
-  'drops',
-  'downloads',
-  'jobs',
-  'turbo',
-  'p',
-  'popout',
-  'moderator',
-  'embed',
-]);
+// 既存の呼び出し元 (adapter/テスト) との互換性のため再エクスポート
+export { extractChannelLoginFromPath };
 
 export interface TwitchStreamInfo {
   /** 配信開始時刻（ISO 8601形式）。取得できない場合は null */
   createdAt: string | null;
   /** 進行中アーカイブVODのID。アーカイブ未生成・非公開の場合は null */
   archiveVideoId: string | null;
-}
-
-/**
- * URLパス名からチャンネルのログイン名を抽出する
- * @param pathname window.location.pathname 相当の文字列
- * @returns ログイン名。チャンネルページでない場合は null
- */
-export function extractChannelLoginFromPath(pathname: string): string | null {
-  const firstSegment = pathname.replace(/^\//, '').split('/')[0];
-  if (!firstSegment || RESERVED_PATHS.has(firstSegment.toLowerCase())) {
-    return null;
-  }
-  if (!VALID_LOGIN_PATTERN.test(firstSegment)) {
-    return null;
-  }
-  return firstSegment;
 }
 
 /**
@@ -90,7 +58,7 @@ export async function fetchStreamInfo(
   fetchFn: typeof fetch = fetch,
 ): Promise<TwitchStreamInfo | null> {
   // GQLクエリへの文字列埋め込みを行うため、ログイン名を厳格に検証（インジェクション対策）
-  if (!VALID_LOGIN_PATTERN.test(login)) {
+  if (!isValidChannelLogin(login)) {
     return null;
   }
 

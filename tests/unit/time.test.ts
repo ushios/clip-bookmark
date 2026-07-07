@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { parseTimeStringToSeconds, formatSecondsToTimeString } from '../../src/common/utils/time';
+import {
+  parseTimeStringToSeconds,
+  formatSecondsToTimeString,
+  formatSecondsToTwitchTimestamp,
+} from '../../src/common/utils/time';
 
 describe('Time Utilities', () => {
   describe('parseTimeStringToSeconds', () => {
@@ -29,6 +33,19 @@ describe('Time Utilities', () => {
     it('は 0 または負の値に対して 00:00:00 を返すこと', () => {
       expect(formatSecondsToTimeString(0)).toBe('00:00:00');
       expect(formatSecondsToTimeString(-10)).toBe('00:00:00');
+    });
+  });
+
+  describe('formatSecondsToTwitchTimestamp', () => {
+    it('は秒数をTwitchの t= パラメータ形式 (XhYYmZZs) に変換できること', () => {
+      expect(formatSecondsToTwitchTimestamp(3700)).toBe('1h01m40s');
+      expect(formatSecondsToTwitchTimestamp(90)).toBe('0h01m30s');
+      expect(formatSecondsToTwitchTimestamp(5025)).toBe('1h23m45s');
+    });
+
+    it('は 0 または負の値に対して 0h00m00s を返すこと', () => {
+      expect(formatSecondsToTwitchTimestamp(0)).toBe('0h00m00s');
+      expect(formatSecondsToTwitchTimestamp(-10)).toBe('0h00m00s');
     });
   });
 });

@@ -137,4 +137,32 @@ describe('TwitchAdapter', () => {
     const secondBody = fetchMock.mock.calls[1][1].body as string;
     expect(secondBody).toContain('another_channel');
   });
+
+  describe('getChannelLogin', () => {
+    it('はチャンネルページ（ライブ）でURLからログイン名を小文字で取得すること', async () => {
+      (window as any).happyDOM?.setURL('https://www.twitch.tv/AtataDayo');
+
+      const adapter = new TwitchAdapter();
+      expect(await adapter.getChannelLogin()).toBe('atatadayo');
+    });
+
+    it('はVODページでチャンネルリンクのhrefからログイン名を取得すること', async () => {
+      (window as any).happyDOM?.setURL('https://www.twitch.tv/videos/123456789');
+
+      const channelLink = document.createElement('a');
+      channelLink.setAttribute('data-a-target', 'user-channel-link');
+      channelLink.setAttribute('href', '/atatadayo');
+      document.body.appendChild(channelLink);
+
+      const adapter = new TwitchAdapter();
+      expect(await adapter.getChannelLogin()).toBe('atatadayo');
+    });
+
+    it('はVODページでチャンネルリンクが見つからない場合 null を返すこと', async () => {
+      (window as any).happyDOM?.setURL('https://www.twitch.tv/videos/123456789');
+
+      const adapter = new TwitchAdapter();
+      expect(await adapter.getChannelLogin()).toBeNull();
+    });
+  });
 });

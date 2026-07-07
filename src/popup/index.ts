@@ -2,8 +2,10 @@ import { StorageManager } from '../common/storage/storage.manager';
 import { Bookmark } from '../common/models/bookmark.model';
 import { Settings } from '../common/models/settings.model';
 import { MESSAGE_ACTIONS } from '../common/models/messages';
-import { formatSecondsToTimeString } from '../common/utils/time';
+import { formatSecondsToTimeString, formatSecondsToTwitchTimestamp } from '../common/utils/time';
 import { validateVideoUrl, sanitizeString } from '../common/utils/security';
+import { parseVodIdInput, buildVodUrl, buildJumpUrl } from '../common/utils/vod';
+import { getChannelLoginFromUrl } from '../common/utils/channel';
 
 /**
  * ポップアップUIの各種イベントハンドリングおよび描画を制御するモジュール
@@ -18,6 +20,7 @@ let activeFilter: 'current' | 'all' = 'current';
 let activeTabUrl: string | null = null;
 let activeTabTitle: string | null = null;
 let activeTabChannel: string | null = null;
+let activeTabChannelLogin: string | null = null;
 let activeTabIsLive: boolean = false;
 const PAGE_SIZE = 50;
 
@@ -34,29 +37,33 @@ function getBaseUrl(url: string): string {
 }
 
 /**
- * 秒数をTwitchのタイムスタンプパラメータ形式 (XhYmZs) に変換する
+ * ブックマークが現在のアクティブタブと同一チャンネルかどうかを判定する
+ * チャンネルログイン名（URL由来の配信者ID）を優先して比較し、
+ * 旧データにはvideoUrlからの導出やチャンネル名の大文字小文字を無視した比較でフォールバックする
  */
-function toTwitchTimestamp(seconds: number): string {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  const secs = seconds % 60;
-
-  const pad = (num: number) => String(num).padStart(2, '0');
-
-  return `${hours}h${pad(minutes)}m${pad(secs)}s`;
+function isSameChannelAsActiveTab(bookmark: Bookmark): boolean {
+  if (activeTabChannelLogin) {
+    if (bookmark.channelLogin) {
+      return bookmark.channelLogin === activeTabChannelLogin;
+    }
+    // 旧データ互換: videoUrlがチャンネルURL形式ならログイン名を導出して比較
+    const loginFromUrl = getChannelLoginFromUrl(bookmark.videoUrl);
+    if (loginFromUrl) {
+      return loginFromUrl === activeTabChannelLogin;
+    }
+  }
+  // 最終フォールバック: チャンネル名の大文字小文字を無視した比較
+  if (activeTabChannel) {
+    return bookmark.channelName.toLowerCase() === activeTabChannel.toLowerCase();
+  }
+  return false;
 }
 
 /**
  * 安全なURL遷移処理
  */
 function navigateToBookmark(bookmark: Bookmark): void {
-  let targetUrl = bookmark.videoUrl;
-
-  if (bookmark.videoUrl.includes('/videos/') && bookmark.relativeTime >= 0) {
-    const timestampParam = `t=${toTwitchTimestamp(bookmark.relativeTime)}`;
-    const separator = bookmark.videoUrl.includes('?') ? '&' : '?';
-    targetUrl = `${bookmark.videoUrl}${separator}${timestampParam}`;
-  }
+  const targetUrl = buildJumpUrl(bookmark.videoUrl, bookmark.relativeTime);
 
   if (validateVideoUrl(targetUrl)) {
     chrome.tabs.create({ url: targetUrl });
@@ -86,17 +93,20 @@ function renderBookmarkList(bookmarks: Bookmark[], append = false): void {
   // 2. フィルター適用
   let targetList = [...allBookmarks];
   if (activeFilter === 'current') {
-    if (activeTabIsLive && activeTabChannel) {
-      // ライブ配信中の場合：チャンネル名と現在の配信タイトルが一致するブックマークのみを表示
+    const currentBase = activeTabUrl ? getBaseUrl(activeTabUrl) : null;
+    if (activeTabIsLive && (activeTabChannelLogin || activeTabChannel)) {
+      // ライブ配信中の場合：同一配信のVOD URL一致、または同一チャンネルのライブ打刻を表示
+      // (タイトルやチャンネル表示名は取得タイミングで揺れるため比較に使わない)
       targetList = targetList.filter((b) => {
-        return b.isLive && 
-               b.channelName === activeTabChannel && 
-               b.title === activeTabTitle;
+        if (currentBase && getBaseUrl(b.videoUrl) === currentBase) {
+          return true;
+        }
+        return b.isLive && isSameChannelAsActiveTab(b);
       });
-    } else if (activeTabUrl) {
+    } else if (currentBase) {
       // VOD（アーカイブ動画）の場合：動画ID（ベースURL）が一致するブックマークのみを表示
-      const currentBase = getBaseUrl(activeTabUrl);
-      targetList = targetList.filter((b) => !b.isLive && getBaseUrl(b.videoUrl) === currentBase);
+      // ライブ中に打刻されたもの (isLive=true) も同一VODなら表示対象に含める
+      targetList = targetList.filter((b) => getBaseUrl(b.videoUrl) === currentBase);
     }
   }
 
@@ -111,7 +121,7 @@ function renderBookmarkList(bookmarks: Bookmark[], append = false): void {
     if (!append) {
       emptyElement.textContent = activeFilter === 'current'
         ? 'この動画のブックマーク履歴はありません。'
-        : 'ブックマークがありません。 Alt+Shift+B またはチャットで打刻してください。';
+        : 'ブックマークがありません。 Alt+B またはチャットで打刻してください。';
       emptyElement.classList.remove('hidden');
     }
     return;
@@ -161,6 +171,16 @@ function renderBookmarkList(bookmarks: Bookmark[], append = false): void {
       metaDiv.appendChild(liveBadge);
     }
 
+    // VOD ID未設定（チャンネルURLのまま）の場合、アーカイブへ飛べない旨の警告を表示
+    const hasVodUrl = bookmark.videoUrl.includes('/videos/');
+    if (!hasVodUrl) {
+      const warningSpan = document.createElement('span');
+      warningSpan.className = 'vod-warning';
+      warningSpan.textContent = '⚠';
+      warningSpan.title = 'アーカイブのVOD IDが未設定のため、アーカイブの該当位置へジャンプできません。✎ボタンからVOD IDを設定してください。';
+      metaDiv.appendChild(warningSpan);
+    }
+
     const timeSpan = document.createElement('span');
     timeSpan.className = 'timestamp';
     timeSpan.textContent = new Date(bookmark.timestamp).toLocaleString();
@@ -195,6 +215,42 @@ function renderBookmarkList(bookmarks: Bookmark[], append = false): void {
     }
 
     li.appendChild(link);
+
+    // 2.2 アクションボタン群（コピー / VOD ID編集 / 削除）
+    const actionsDiv = document.createElement('div');
+    actionsDiv.className = 'item-actions';
+
+    // コピーボタン: VOD URLがあればタイムスタンプ付き完全URL、なければ t= パラメータ値をコピー
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'copy-btn icon-btn';
+    copyBtn.textContent = '📋';
+    copyBtn.title = hasVodUrl
+      ? 'タイムスタンプ付きURLをコピー'
+      : `タイムスタンプ (?t=${formatSecondsToTwitchTimestamp(bookmark.relativeTime)}) をコピー`;
+    copyBtn.onclick = async (e) => {
+      e.stopPropagation();
+      // VOD URL未設定の場合は、アーカイブURLの末尾にそのまま貼り付けられる ?t= 形式でコピーする
+      const text = hasVodUrl
+        ? buildJumpUrl(bookmark.videoUrl, bookmark.relativeTime)
+        : `?t=${formatSecondsToTwitchTimestamp(bookmark.relativeTime)}`;
+      try {
+        await navigator.clipboard.writeText(text);
+        copyBtn.textContent = '✓';
+        setTimeout(() => {
+          copyBtn.textContent = '📋';
+        }, 1500);
+      } catch (error) {
+        console.error('Failed to copy to clipboard:', error);
+      }
+    };
+    actionsDiv.appendChild(copyBtn);
+
+    // VOD ID編集ボタン
+    const vodEditBtn = document.createElement('button');
+    vodEditBtn.className = 'vod-edit-btn icon-btn';
+    vodEditBtn.textContent = '✎';
+    vodEditBtn.title = 'アーカイブのVOD IDを設定・修正';
+    actionsDiv.appendChild(vodEditBtn);
 
     // 2.5 メモエリアの追加
     const memoDiv = document.createElement('div');
@@ -263,12 +319,83 @@ function renderBookmarkList(bookmarks: Bookmark[], append = false): void {
     memoDiv.appendChild(memoInput);
     li.appendChild(memoDiv);
 
+    // 2.6 アクションボタン行はメモの下に配置
+    li.appendChild(actionsDiv);
+
+    // 2.7 VOD ID入力エリア（編集ボタンで表示切り替え）
+    const vodEditContainer = document.createElement('div');
+    vodEditContainer.className = 'vod-edit-container hidden';
+
+    const vodInput = document.createElement('input');
+    vodInput.type = 'text';
+    vodInput.className = 'vod-input';
+    vodInput.placeholder = 'VOD ID または https://www.twitch.tv/videos/... を入力してEnterで保存';
+    vodEditContainer.appendChild(vodInput);
+
+    const closeVodEdit = () => {
+      vodEditContainer.classList.add('hidden');
+      vodInput.value = '';
+    };
+
+    vodEditBtn.onclick = (e) => {
+      e.stopPropagation();
+      if (vodEditContainer.classList.contains('hidden')) {
+        vodEditContainer.classList.remove('hidden');
+        // 既存のVOD URLがあれば初期値として表示
+        vodInput.value = hasVodUrl ? bookmark.videoUrl : '';
+        vodInput.focus();
+      } else {
+        closeVodEdit();
+      }
+    };
+
+    const saveVodId = async () => {
+      const rawInput = vodInput.value.trim();
+      if (!rawInput) {
+        closeVodEdit();
+        return;
+      }
+
+      const vodId = parseVodIdInput(rawInput);
+      if (!vodId) {
+        alert('VOD ID（数字）または https://www.twitch.tv/videos/... 形式のURLを入力してください。');
+        return;
+      }
+
+      const newVideoUrl = buildVodUrl(vodId);
+      closeVodEdit();
+
+      await storageManager.updateBookmarkVideoUrl(bookmark.id, newVideoUrl);
+
+      // メモリ内キャッシュを更新して再描画（アーカイブ紐付けにより isLive は false になる）
+      const updatedBookmark = { ...bookmark, videoUrl: newVideoUrl, isLive: false };
+      allBookmarks = allBookmarks.map((b) => (b.id === bookmark.id ? updatedBookmark : b));
+      renderBookmarkList(allBookmarks, false);
+    };
+
+    vodInput.onkeydown = (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        saveVodId();
+      }
+      if (e.key === 'Escape') {
+        closeVodEdit();
+      }
+    };
+
+    li.appendChild(vodEditContainer);
+
     // 3. 削除ボタン
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'delete-btn';
     deleteBtn.textContent = '🗑';
     deleteBtn.title = '削除';
     deleteBtn.onclick = async () => {
+      // 誤クリック防止のための確認ダイアログ
+      if (!confirm(`このブックマークを削除しますか？\n「${bookmark.title}」`)) {
+        return;
+      }
+
       // 楽観的UI更新
       li.remove();
       allBookmarks = allBookmarks.filter((b) => b.id !== bookmark.id);
@@ -279,11 +406,11 @@ function renderBookmarkList(bookmarks: Bookmark[], append = false): void {
       if (listElement.children.length === 0 && filteredBookmarks.length === 0) {
         emptyElement.textContent = activeFilter === 'current'
           ? 'この動画のブックマーク履歴はありません。'
-          : 'ブックマークがありません。 Alt+Shift+B またはチャットで打刻してください。';
+          : 'ブックマークがありません。 Alt+B またはチャットで打刻してください。';
         emptyElement.classList.remove('hidden');
       }
     };
-    li.appendChild(deleteBtn);
+    actionsDiv.appendChild(deleteBtn);
 
     fragment.appendChild(li);
   });
@@ -488,6 +615,7 @@ export async function initPopup(): Promise<void> {
   activeTabUrl = null;
   activeTabTitle = null;
   activeTabChannel = null;
+  activeTabChannelLogin = null;
   activeTabIsLive = false;
 
   // 現在のアクティブなタブを検索
@@ -511,6 +639,9 @@ export async function initPopup(): Promise<void> {
             activeTabUrl = response.videoUrl || activeTab.url;
             activeTabTitle = response.title || null;
             activeTabChannel = response.channelName || null;
+            // ログイン名はContent Scriptの応答を優先し、なければタブURLから導出
+            activeTabChannelLogin =
+              response.channelLogin || getChannelLoginFromUrl(activeTab.url || '') || null;
             activeTabIsLive = !!response.isLive;
           }
           resolve();

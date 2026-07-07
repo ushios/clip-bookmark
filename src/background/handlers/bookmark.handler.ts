@@ -2,6 +2,7 @@ import { Bookmark } from '../../common/models/bookmark.model';
 import { ExtensionMessage, MESSAGE_ACTIONS } from '../../common/models/messages';
 import { StorageManager } from '../../common/storage/storage.manager';
 import { validateMessageSender, validateVideoUrl, sanitizeString } from '../../common/utils/security';
+import { isValidChannelLogin } from '../../common/utils/channel';
 
 /**
  * Service Worker側でのメッセージ処理ハンドラー
@@ -43,11 +44,17 @@ export async function handleExtensionMessage(
       const platform = sanitizeString(payload.platform || 'twitch', 50);
       const memo = payload.memo ? sanitizeString(payload.memo, 100) : undefined;
 
+      // チャンネルログイン名の検証と小文字への正規化（不正な形式は保存しない）
+      const rawChannelLogin =
+        typeof payload.channelLogin === 'string' ? payload.channelLogin.trim().toLowerCase() : '';
+      const channelLogin = isValidChannelLogin(rawChannelLogin) ? rawChannelLogin : undefined;
+
       // 保存するブックマークの構築
       const bookmark: Bookmark = {
         id: payload.id || Date.now().toString(),
         platform,
         channelName,
+        ...(channelLogin ? { channelLogin } : {}),
         title,
         videoUrl,
         timestamp: payload.timestamp || new Date().toISOString(),

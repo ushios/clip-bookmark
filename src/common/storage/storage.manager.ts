@@ -143,6 +143,23 @@ export class StorageManager {
   }
 
   /**
+   * 指定したIDのブックマークのvideoUrlを更新する（VOD IDの手動指定用）
+   * VOD URLの指定はアーカイブへの紐付けを意味するため、isLive は false に更新される
+   */
+  public async updateBookmarkVideoUrl(id: string, videoUrl: string): Promise<void> {
+    return this.enqueue(async () => {
+      const bookmarks = await this.getBookmarks();
+      const updated = bookmarks.map((b) => {
+        if (b.id === id) {
+          return { ...b, videoUrl, isLive: false };
+        }
+        return b;
+      });
+      await this.setStorage('local', { bookmarks: updated });
+    });
+  }
+
+  /**
    * 設定を取得（保存されていない場合はデフォルト値を返却）
    */
   public async getSettings(): Promise<Settings> {

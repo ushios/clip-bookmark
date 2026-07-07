@@ -124,6 +124,50 @@ describe('StorageManager', () => {
         expect.any(Function),
       );
     });
+
+    it('は指定したIDのブックマークのvideoUrlを更新し、isLiveをfalseにすること', async () => {
+      const liveBookmark: Bookmark = {
+        id: '50',
+        platform: 'twitch',
+        channelName: 'test',
+        title: 'test',
+        videoUrl: 'https://www.twitch.tv/test',
+        timestamp: new Date().toISOString(),
+        relativeTime: 500,
+        isLive: true,
+      };
+      const otherBookmark: Bookmark = {
+        id: '51',
+        platform: 'twitch',
+        channelName: 'other',
+        title: 'other',
+        videoUrl: 'https://www.twitch.tv/other',
+        timestamp: new Date().toISOString(),
+        relativeTime: 100,
+        isLive: true,
+      };
+
+      vi.mocked(chrome.storage.local.get).mockImplementation((_keys, callback) => {
+        if (callback) callback({ bookmarks: [liveBookmark, otherBookmark] });
+        return Promise.resolve({ bookmarks: [liveBookmark, otherBookmark] });
+      });
+
+      const manager = StorageManager.getInstance();
+      await manager.updateBookmarkVideoUrl('50', 'https://www.twitch.tv/videos/123456789');
+
+      const setCallArgs = vi.mocked(chrome.storage.local.set).mock.calls[0][0] as { bookmarks: Bookmark[] };
+      expect(setCallArgs.bookmarks[0]).toMatchObject({
+        id: '50',
+        videoUrl: 'https://www.twitch.tv/videos/123456789',
+        isLive: false,
+      });
+      // 対象外のブックマークは変更されないこと
+      expect(setCallArgs.bookmarks[1]).toMatchObject({
+        id: '51',
+        videoUrl: 'https://www.twitch.tv/other',
+        isLive: true,
+      });
+    });
   });
 
   describe('Settings Operations', () => {

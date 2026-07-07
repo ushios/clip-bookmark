@@ -30,9 +30,10 @@ async function triggerBookmarkSave(memo?: string): Promise<void> {
     toastManager.showSaving();
 
     // 2. DOMから現在時間等の情報を抽出
-    const [relativeTime, channelName, title, videoUrl, isLive] = await Promise.all([
+    const [relativeTime, channelName, channelLogin, title, videoUrl, isLive] = await Promise.all([
       twitchAdapter.getCurrentTime(),
       twitchAdapter.getChannelName(),
+      twitchAdapter.getChannelLogin(),
       twitchAdapter.getVideoTitle(),
       twitchAdapter.getVideoUrl(),
       twitchAdapter.isLive(),
@@ -46,6 +47,7 @@ async function triggerBookmarkSave(memo?: string): Promise<void> {
           id: Date.now().toString(),
           platform: 'twitch',
           channelName,
+          channelLogin,
           title,
           videoUrl,
           timestamp: new Date().toISOString(),
@@ -147,13 +149,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       twitchAdapter.getVideoUrl(),
       twitchAdapter.getVideoTitle(),
       twitchAdapter.getChannelName(),
+      twitchAdapter.getChannelLogin(),
       twitchAdapter.isLive(),
-    ]).then(([videoUrl, title, channelName, isLive]) => {
+    ]).then(([videoUrl, title, channelName, channelLogin, isLive]) => {
       sendResponse({
         success: true,
         videoUrl,
         title,
         channelName,
+        channelLogin,
         isLive,
       });
     }).catch((err) => {

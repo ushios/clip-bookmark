@@ -19,8 +19,8 @@ body {
   font-family: var(--font-family);
   background-color: var(--bg-color);
   color: var(--text-color);
-  width: 380px;
-  height: 500px;
+  width: 420px;
+  height: 560px;
   overflow: hidden;
 }
 
@@ -177,14 +177,13 @@ ul {
 /* ブックマーク項目 */
 .bookmark-item {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 12px;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-color);
-  border-radius: 4px;
-  margin-bottom: 8px;
+  border-radius: 6px;
+  margin-bottom: 10px;
   transition: border-color 0.2s ease;
 }
 
@@ -195,27 +194,38 @@ ul {
 .bookmark-info {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
   overflow: hidden;
   flex-grow: 1;
-  margin-right: 8px;
+  margin-right: 10px;
 }
 
 .bookmark-link {
   text-decoration: none;
   cursor: pointer;
-  width: calc(100% - 24px);
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: space-between;
   overflow: hidden;
 }
 
+/* アクションボタン群（コピー / VOD ID編集 / 削除） */
+.item-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  width: 100%;
+}
+
 .bookmark-meta {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
-  font-size: 11px;
+  row-gap: 2px;
+  font-size: 12px;
 }
 
 .channel-name {
@@ -238,23 +248,26 @@ ul {
 }
 
 .bookmark-title {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
   color: var(--text-color);
-  white-space: nowrap;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .time-badge {
-  background-color: rgba(255, 255, 255, 0.08);
-  color: var(--text-color);
-  font-size: 12px;
+  background-color: rgba(145, 70, 255, 0.15);
+  color: #bf94ff;
+  font-size: 13px;
   font-weight: 700;
   font-family: monospace;
-  padding: 2px 6px;
-  border-radius: 3px;
-  align-self: flex-start;
+  padding: 4px 8px;
+  border-radius: 4px;
+  align-self: center;
+  flex-shrink: 0;
 }
 
 /* 空状態 */
@@ -361,19 +374,62 @@ input[type="text"]:focus {
 }
 
 .delete-btn {
-  background: none;
-  border: none;
+  background-color: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-color);
   color: var(--text-muted);
   cursor: pointer;
-  font-size: 16px;
-  padding: 4px 8px;
+  font-size: 14px;
+  padding: 4px 10px;
   border-radius: 4px;
   transition: all 0.2s ease;
 }
 
 .delete-btn:hover {
   color: var(--danger-color);
+  border-color: var(--danger-color);
   background-color: rgba(235, 4, 0, 0.1);
+}
+
+.icon-btn {
+  background-color: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.icon-btn:hover {
+  color: var(--text-color);
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* VOD ID未設定の警告アイコン */
+.vod-warning {
+  color: #ffca28;
+  font-size: 12px;
+  cursor: help;
+}
+
+/* VOD ID入力エリア */
+.vod-edit-container {
+  width: 100%;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border-color);
+}
+
+.vod-input {
+  width: 100%;
+  box-sizing: border-box;
+  background-color: var(--bg-color);
+  border: 1px solid var(--primary-color);
+  border-radius: 4px;
+  color: var(--text-color);
+  padding: 6px 8px;
+  font-size: 12px;
+  outline: none;
 }
 
 /* タグリスト */
@@ -411,10 +467,9 @@ input[type="text"]:focus {
 /* メモ表示・編集 */
 .memo-container {
   width: 100%;
-  margin-top: 8px;
-  padding-top: 6px;
+  padding-top: 8px;
   border-top: 1px dashed var(--border-color);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .memo-text {
@@ -444,7 +499,7 @@ input[type="text"]:focus {
   border: 1px solid var(--primary-color);
   border-radius: 4px;
   color: var(--text-color);
-  padding: 4px 8px;
-  font-size: 11px;
+  padding: 6px 8px;
+  font-size: 12px;
   outline: none;
 }

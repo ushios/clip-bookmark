@@ -359,6 +359,11 @@ function renderBookmarkList(bookmarks: Bookmark[], append = false): void {
     deleteBtn.textContent = '🗑';
     deleteBtn.title = '削除';
     deleteBtn.onclick = async () => {
+      // 誤クリック防止のための確認ダイアログ
+      if (!confirm(`このブックマークを削除しますか？\n「${bookmark.title}」`)) {
+        return;
+      }
+
       // 楽観的UI更新
       li.remove();
       allBookmarks = allBookmarks.filter((b) => b.id !== bookmark.id);

@@ -120,7 +120,10 @@ describe('User Story 3: Popup UI & Settings', () => {
     });
   });
 
-  it('は削除ボタンをクリックした際、StorageManagerから削除し、DOMからも即時消去すること', async () => {
+  it('は削除ボタンをクリックし確認ダイアログで承認した際、StorageManagerから削除し、DOMからも即時消去すること', async () => {
+    const confirmMock = vi.fn().mockReturnValue(true);
+    vi.stubGlobal('confirm', confirmMock);
+
     await initPopup();
     await new Promise((resolve) => setTimeout(resolve, 50));
 
@@ -131,9 +134,33 @@ describe('User Story 3: Popup UI & Settings', () => {
 
     deleteBtn.click();
 
+    expect(confirmMock).toHaveBeenCalled();
     expect(StorageManager.prototype.deleteBookmark).toHaveBeenCalledWith('1');
     expect(list?.children.length).toBe(1);
     expect(list?.textContent).not.toContain('VOD Title A');
+
+    vi.unstubAllGlobals();
+  });
+
+  it('は削除の確認ダイアログでキャンセルした際、削除を行わないこと', async () => {
+    const confirmMock = vi.fn().mockReturnValue(false);
+    vi.stubGlobal('confirm', confirmMock);
+
+    await initPopup();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const list = document.getElementById('bookmark-list');
+    const initialCount = list?.children.length;
+    const firstItem = list?.children[0] as HTMLElement;
+    const deleteBtn = firstItem.querySelector('.delete-btn') as HTMLElement;
+
+    deleteBtn.click();
+
+    expect(confirmMock).toHaveBeenCalled();
+    expect(StorageManager.prototype.deleteBookmark).not.toHaveBeenCalled();
+    expect(list?.children.length).toBe(initialCount);
+
+    vi.unstubAllGlobals();
   });
 
   it('は新規のトリガーワードを設定した際、設定を保存しリストを更新すること', async () => {

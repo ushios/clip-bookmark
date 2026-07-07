@@ -121,7 +121,7 @@ function renderBookmarkList(bookmarks: Bookmark[], append = false): void {
     if (!append) {
       emptyElement.textContent = activeFilter === 'current'
         ? 'この動画のブックマーク履歴はありません。'
-        : 'ブックマークがありません。 Alt+Shift+B またはチャットで打刻してください。';
+        : 'ブックマークがありません。 Alt+B またはチャットで打刻してください。';
       emptyElement.classList.remove('hidden');
     }
     return;
@@ -406,7 +406,7 @@ function renderBookmarkList(bookmarks: Bookmark[], append = false): void {
       if (listElement.children.length === 0 && filteredBookmarks.length === 0) {
         emptyElement.textContent = activeFilter === 'current'
           ? 'この動画のブックマーク履歴はありません。'
-          : 'ブックマークがありません。 Alt+Shift+B またはチャットで打刻してください。';
+          : 'ブックマークがありません。 Alt+B またはチャットで打刻してください。';
         emptyElement.classList.remove('hidden');
       }
     };

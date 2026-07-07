@@ -43,7 +43,7 @@
   "commands": {
     "bookmark-trigger": {
       "suggested_key": {
-        "default": "Alt+Shift+B"
+        "default": "Alt+B"
       },
       "description": "現在の再生位置をブックマークに保存"
     }

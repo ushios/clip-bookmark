@@ -532,3 +532,75 @@ input[type='text']:focus {
   opacity: 1;
   transform: translateY(0);
 }
+
+/* 日付グループ (アコーディオン) */
+.date-group {
+  margin-bottom: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background-color: var(--bg-secondary);
+  overflow: hidden;
+  transition: border-color 0.2s ease;
+}
+
+.date-group:hover {
+  border-color: rgba(145, 70, 255, 0.4);
+}
+
+/* アコーディオンのヘッダー */
+.date-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background-color: rgba(255, 255, 255, 0.02);
+  cursor: pointer;
+  user-select: none;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-color);
+  list-style: none;
+}
+
+.date-header::-webkit-details-marker {
+  display: none;
+}
+
+/* 日付タイトルとカスタム矢印 */
+.date-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.date-title::before {
+  content: '▼';
+  font-size: 9px;
+  color: var(--text-muted);
+  transition: transform 0.2s ease;
+  display: inline-block;
+}
+
+details:not([open]) .date-title::before {
+  transform: rotate(-90deg);
+}
+
+.date-count {
+  font-size: 11px;
+  color: var(--text-muted);
+  background-color: rgba(255, 255, 255, 0.06);
+  padding: 2px 6px;
+  border-radius: 10px;
+}
+
+/* グループ内のリスト */
+.date-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  border-top: 1px solid var(--border-color);
+}
+
+.date-list .bookmark-item:last-child {
+  border-bottom: none;
+}

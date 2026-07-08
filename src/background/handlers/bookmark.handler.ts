@@ -1,7 +1,11 @@
 import { Bookmark } from '../../common/models/bookmark.model';
 import { ExtensionMessage, MESSAGE_ACTIONS } from '../../common/models/messages';
 import { StorageManager } from '../../common/storage/storage.manager';
-import { validateMessageSender, validateVideoUrl, sanitizeString } from '../../common/utils/security';
+import {
+  validateMessageSender,
+  validateVideoUrl,
+  sanitizeString,
+} from '../../common/utils/security';
 import { isValidChannelLogin } from '../../common/utils/channel';
 
 /**

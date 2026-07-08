@@ -88,7 +88,7 @@ export class StorageManager {
   public async saveBookmark(bookmark: Bookmark): Promise<void> {
     return this.enqueue(async () => {
       const bookmarks = await this.getBookmarks();
-      
+
       // 重複保存を防ぐため、同一IDが既に存在する場合は更新、そうでない場合は追加
       const existingIndex = bookmarks.findIndex((b) => b.id === bookmark.id);
       if (existingIndex !== -1) {

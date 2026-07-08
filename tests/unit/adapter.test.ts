@@ -47,7 +47,7 @@ describe('TwitchAdapter', () => {
     document.body.innerHTML = '';
     // head内の既存のscriptタグをクリア
     const scripts = document.head.querySelectorAll('script');
-    scripts.forEach(s => document.head.removeChild(s));
+    scripts.forEach((s) => document.head.removeChild(s));
     // テスト用URLをTwitchのチャンネルページに設定 (happy-dom)
     (window as any).happyDOM?.setURL('https://www.twitch.tv/shroud');
   });
@@ -64,7 +64,9 @@ describe('TwitchAdapter', () => {
   }
 
   /** GQL応答を返す fetch モックをグローバルに設定するヘルパー */
-  function stubGqlFetch(stream: { createdAt?: string; archiveVideo?: { id: string } | null } | null): ReturnType<typeof vi.fn> {
+  function stubGqlFetch(
+    stream: { createdAt?: string; archiveVideo?: { id: string } | null } | null,
+  ): ReturnType<typeof vi.fn> {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ data: { user: { stream } } }),
@@ -123,7 +125,10 @@ describe('TwitchAdapter', () => {
   });
 
   it('はSPA遷移でチャンネルが変わった場合、キャッシュを使わず新しいチャンネルの情報を取得すること', async () => {
-    const fetchMock = stubGqlFetch({ createdAt: '2026-07-05T00:00:00Z', archiveVideo: { id: '111111111' } });
+    const fetchMock = stubGqlFetch({
+      createdAt: '2026-07-05T00:00:00Z',
+      archiveVideo: { id: '111111111' },
+    });
     addLiveIndicator();
 
     const adapter = new TwitchAdapter();

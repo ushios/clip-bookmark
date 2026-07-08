@@ -86,7 +86,9 @@ describe('StorageManager', () => {
         expect.any(Function),
       );
 
-      const setCallArgs = vi.mocked(chrome.storage.local.set).mock.calls[0][0] as { bookmarks: Bookmark[] };
+      const setCallArgs = vi.mocked(chrome.storage.local.set).mock.calls[0][0] as {
+        bookmarks: Bookmark[];
+      };
       expect(setCallArgs.bookmarks.length).toBe(1000);
       expect(setCallArgs.bookmarks[0].id).toBe('2'); // 古い1件目が削除されている
       expect(setCallArgs.bookmarks[999].id).toBe('1001'); // 最新が末尾に追加されている
@@ -155,7 +157,9 @@ describe('StorageManager', () => {
       const manager = StorageManager.getInstance();
       await manager.updateBookmarkVideoUrl('50', 'https://www.twitch.tv/videos/123456789');
 
-      const setCallArgs = vi.mocked(chrome.storage.local.set).mock.calls[0][0] as { bookmarks: Bookmark[] };
+      const setCallArgs = vi.mocked(chrome.storage.local.set).mock.calls[0][0] as {
+        bookmarks: Bookmark[];
+      };
       expect(setCallArgs.bookmarks[0]).toMatchObject({
         id: '50',
         videoUrl: 'https://www.twitch.tv/videos/123456789',

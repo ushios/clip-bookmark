@@ -29,15 +29,21 @@ function buildSaveMessage(payloadOverrides: Record<string, unknown> = {}) {
 describe('handleExtensionMessage (SAVE_BOOKMARK)', () => {
   beforeEach(() => {
     // ストレージモックを空の状態にリセット
-    (chrome.storage.local.get as any).mockImplementation((_keys: unknown, callback?: (result: Record<string, unknown>) => void) => {
-      if (callback) callback({ bookmarks: [] });
-      return Promise.resolve({ bookmarks: [] });
-    });
+    (chrome.storage.local.get as any).mockImplementation(
+      (_keys: unknown, callback?: (result: Record<string, unknown>) => void) => {
+        if (callback) callback({ bookmarks: [] });
+        return Promise.resolve({ bookmarks: [] });
+      },
+    );
   });
 
   it('はチャット打刻で渡されたメモをブックマークに保存すること', async () => {
     const sendResponse = vi.fn();
-    await handleExtensionMessage(buildSaveMessage({ memo: '!bm ナイスプレイ' }) as any, validSender, sendResponse);
+    await handleExtensionMessage(
+      buildSaveMessage({ memo: '!bm ナイスプレイ' }) as any,
+      validSender,
+      sendResponse,
+    );
 
     expect(sendResponse).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -65,7 +71,11 @@ describe('handleExtensionMessage (SAVE_BOOKMARK)', () => {
 
   it('はchannelLoginを小文字に正規化して保存すること', async () => {
     const sendResponse = vi.fn();
-    await handleExtensionMessage(buildSaveMessage({ channelLogin: 'AtataDayo' }) as any, validSender, sendResponse);
+    await handleExtensionMessage(
+      buildSaveMessage({ channelLogin: 'AtataDayo' }) as any,
+      validSender,
+      sendResponse,
+    );
 
     expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
     const setCalls = (chrome.storage.local.set as any).mock.calls;
@@ -75,7 +85,11 @@ describe('handleExtensionMessage (SAVE_BOOKMARK)', () => {
 
   it('は不正な形式のchannelLoginは保存しないこと', async () => {
     const sendResponse = vi.fn();
-    await handleExtensionMessage(buildSaveMessage({ channelLogin: '不正な"ログイン' }) as any, validSender, sendResponse);
+    await handleExtensionMessage(
+      buildSaveMessage({ channelLogin: '不正な"ログイン' }) as any,
+      validSender,
+      sendResponse,
+    );
 
     expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
     const setCalls = (chrome.storage.local.set as any).mock.calls;

@@ -5,7 +5,7 @@
  */
 export function parseTimeStringToSeconds(timeStr: string): number {
   if (!timeStr) return 0;
-  
+
   const parts = timeStr.trim().split(':');
   if (parts.some((part) => isNaN(Number(part)))) {
     return 0;

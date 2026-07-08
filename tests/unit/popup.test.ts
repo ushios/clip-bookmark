@@ -91,7 +91,7 @@ describe('User Story 3: Popup UI & Settings', () => {
 
     const list = document.getElementById('bookmark-list');
     expect(list?.children.length).toBe(2);
-    
+
     expect(list?.innerHTML).not.toContain('<script>');
     expect(list?.textContent).toContain('streamer_a');
     expect(list?.textContent).toContain('01:01:40');
@@ -274,23 +274,32 @@ describe('User Story 3: Popup UI & Settings', () => {
     // アクティブタブのURLをモック
     vi.mocked(chrome.tabs.query).mockImplementation((queryInfo, callback) => {
       if (callback) {
-        callback([{ id: 1, url: 'https://twitch.tv/videos/12345', active: true, windowId: 1 } as unknown as chrome.tabs.Tab]);
+        callback([
+          {
+            id: 1,
+            url: 'https://twitch.tv/videos/12345',
+            active: true,
+            windowId: 1,
+          } as unknown as chrome.tabs.Tab,
+        ]);
       }
     });
 
     // Content Scriptからのメッセージ応答（VOD設定）
-    vi.mocked(chrome.tabs.sendMessage).mockImplementation((tabId, message, options, responseCallback) => {
-      const callback = typeof options === 'function' ? options : responseCallback;
-      if (callback) {
-        callback({
-          success: true,
-          videoUrl: 'https://twitch.tv/videos/12345',
-          title: 'VOD Title A',
-          channelName: 'streamer_a',
-          isLive: false,
-        });
-      }
-    });
+    vi.mocked(chrome.tabs.sendMessage).mockImplementation(
+      (tabId, message, options, responseCallback) => {
+        const callback = typeof options === 'function' ? options : responseCallback;
+        if (callback) {
+          callback({
+            success: true,
+            videoUrl: 'https://twitch.tv/videos/12345',
+            title: 'VOD Title A',
+            channelName: 'streamer_a',
+            isLive: false,
+          });
+        }
+      },
+    );
 
     await initPopup();
     await new Promise((resolve) => setTimeout(resolve, 50));
@@ -327,29 +336,38 @@ describe('User Story 3: Popup UI & Settings', () => {
     // アクティブタブのURLをモック
     vi.mocked(chrome.tabs.query).mockImplementation((queryInfo, callback) => {
       if (callback) {
-        callback([{ id: 1, url: 'https://twitch.tv/streamer_b', active: true, windowId: 1 } as unknown as chrome.tabs.Tab]);
+        callback([
+          {
+            id: 1,
+            url: 'https://twitch.tv/streamer_b',
+            active: true,
+            windowId: 1,
+          } as unknown as chrome.tabs.Tab,
+        ]);
       }
     });
 
     // Content Scriptからのメッセージ応答（生放送設定）
-    vi.mocked(chrome.tabs.sendMessage).mockImplementation((tabId, message, options, responseCallback) => {
-      const callback = typeof options === 'function' ? options : responseCallback;
-      if (callback) {
-        callback({
-          success: true,
-          videoUrl: 'https://twitch.tv/streamer_b',
-          title: 'Live Title B',
-          channelName: 'streamer_b',
-          isLive: true,
-        });
-      }
-    });
+    vi.mocked(chrome.tabs.sendMessage).mockImplementation(
+      (tabId, message, options, responseCallback) => {
+        const callback = typeof options === 'function' ? options : responseCallback;
+        if (callback) {
+          callback({
+            success: true,
+            videoUrl: 'https://twitch.tv/streamer_b',
+            title: 'Live Title B',
+            channelName: 'streamer_b',
+            isLive: true,
+          });
+        }
+      },
+    );
 
     await initPopup();
     await new Promise((resolve) => setTimeout(resolve, 50));
 
     const list = document.getElementById('bookmark-list');
-    
+
     // ライブ配信が一致する「2」のブックマーク1件のみが表示されること
     expect(list?.children.length).toBe(1);
     expect(list?.textContent).toContain('streamer_b');
@@ -387,24 +405,33 @@ describe('User Story 3: Popup UI & Settings', () => {
 
       vi.mocked(chrome.tabs.query).mockImplementation((queryInfo, callback) => {
         if (callback) {
-          callback([{ id: 1, url: 'https://www.twitch.tv/atatadayo', active: true, windowId: 1 } as unknown as chrome.tabs.Tab]);
+          callback([
+            {
+              id: 1,
+              url: 'https://www.twitch.tv/atatadayo',
+              active: true,
+              windowId: 1,
+            } as unknown as chrome.tabs.Tab,
+          ]);
         }
       });
 
       // ポップアップを開いた時点では、タイトルが変更され表示名も英語表記になっている
-      vi.mocked(chrome.tabs.sendMessage).mockImplementation((tabId, message, options, responseCallback) => {
-        const callback = typeof options === 'function' ? options : responseCallback;
-        if (callback) {
-          callback({
-            success: true,
-            videoUrl: 'https://www.twitch.tv/atatadayo',
-            title: '新しいタイトル',
-            channelName: 'Atatadayo',
-            channelLogin: 'atatadayo',
-            isLive: true,
-          });
-        }
-      });
+      vi.mocked(chrome.tabs.sendMessage).mockImplementation(
+        (tabId, message, options, responseCallback) => {
+          const callback = typeof options === 'function' ? options : responseCallback;
+          if (callback) {
+            callback({
+              success: true,
+              videoUrl: 'https://www.twitch.tv/atatadayo',
+              title: '新しいタイトル',
+              channelName: 'Atatadayo',
+              channelLogin: 'atatadayo',
+              isLive: true,
+            });
+          }
+        },
+      );
 
       await initPopup();
       await new Promise((resolve) => setTimeout(resolve, 50));
@@ -433,22 +460,31 @@ describe('User Story 3: Popup UI & Settings', () => {
 
       vi.mocked(chrome.tabs.query).mockImplementation((queryInfo, callback) => {
         if (callback) {
-          callback([{ id: 1, url: 'https://www.twitch.tv/atatadayo', active: true, windowId: 1 } as unknown as chrome.tabs.Tab]);
+          callback([
+            {
+              id: 1,
+              url: 'https://www.twitch.tv/atatadayo',
+              active: true,
+              windowId: 1,
+            } as unknown as chrome.tabs.Tab,
+          ]);
         }
       });
 
-      vi.mocked(chrome.tabs.sendMessage).mockImplementation((tabId, message, options, responseCallback) => {
-        const callback = typeof options === 'function' ? options : responseCallback;
-        if (callback) {
-          callback({
-            success: true,
-            videoUrl: 'https://www.twitch.tv/videos/555000111', // GQLで進行中VOD URLが取れている
-            title: '新しいタイトル',
-            channelName: 'Atatadayo',
-            isLive: true,
-          });
-        }
-      });
+      vi.mocked(chrome.tabs.sendMessage).mockImplementation(
+        (tabId, message, options, responseCallback) => {
+          const callback = typeof options === 'function' ? options : responseCallback;
+          if (callback) {
+            callback({
+              success: true,
+              videoUrl: 'https://www.twitch.tv/videos/555000111', // GQLで進行中VOD URLが取れている
+              title: '新しいタイトル',
+              channelName: 'Atatadayo',
+              isLive: true,
+            });
+          }
+        },
+      );
 
       await initPopup();
       await new Promise((resolve) => setTimeout(resolve, 50));
@@ -487,23 +523,32 @@ describe('User Story 3: Popup UI & Settings', () => {
 
       vi.mocked(chrome.tabs.query).mockImplementation((queryInfo, callback) => {
         if (callback) {
-          callback([{ id: 1, url: 'https://www.twitch.tv/videos/555000111', active: true, windowId: 1 } as unknown as chrome.tabs.Tab]);
+          callback([
+            {
+              id: 1,
+              url: 'https://www.twitch.tv/videos/555000111',
+              active: true,
+              windowId: 1,
+            } as unknown as chrome.tabs.Tab,
+          ]);
         }
       });
 
-      vi.mocked(chrome.tabs.sendMessage).mockImplementation((tabId, message, options, responseCallback) => {
-        const callback = typeof options === 'function' ? options : responseCallback;
-        if (callback) {
-          callback({
-            success: true,
-            videoUrl: 'https://www.twitch.tv/videos/555000111',
-            title: 'アーカイブ',
-            channelName: 'Atatadayo',
-            channelLogin: 'atatadayo',
-            isLive: false,
-          });
-        }
-      });
+      vi.mocked(chrome.tabs.sendMessage).mockImplementation(
+        (tabId, message, options, responseCallback) => {
+          const callback = typeof options === 'function' ? options : responseCallback;
+          if (callback) {
+            callback({
+              success: true,
+              videoUrl: 'https://www.twitch.tv/videos/555000111',
+              title: 'アーカイブ',
+              channelName: 'Atatadayo',
+              channelLogin: 'atatadayo',
+              isLive: false,
+            });
+          }
+        },
+      );
 
       await initPopup();
       await new Promise((resolve) => setTimeout(resolve, 50));
@@ -532,7 +577,7 @@ describe('User Story 3: Popup UI & Settings', () => {
     // IDが "1" のブックマーク要素を明示的に取得
     const firstItem = list?.querySelector('[data-id="1"]') as HTMLElement;
     expect(firstItem).not.toBeNull();
-    
+
     // メモテキストが正しく描画されているか検証
     const memoSpan = firstItem.querySelector('.memo-text') as HTMLElement;
     expect(memoSpan).not.toBeNull();
@@ -718,4 +763,3 @@ describe('User Story 3: Popup UI & Settings', () => {
     });
   });
 });
-

@@ -189,15 +189,72 @@ function renderBookmarkList(bookmarks: Bookmark[], append = false): void {
   emptyElement.classList.add('hidden');
 
   // スライス範囲の決定
-  const start = append ? listElement.children.length : 0;
+  const start = append ? listElement.querySelectorAll('.bookmark-item').length : 0;
   const end = Math.min(start + PAGE_SIZE, filteredBookmarks.length);
   const displayList = filteredBookmarks.slice(start, end);
 
   if (displayList.length === 0) return;
 
+  // 日付ごとのカウントマップを用意
+  const dateCounts: Record<string, number> = {};
+  filteredBookmarks.forEach((b) => {
+    const dateKey = new Date(b.timestamp).toLocaleDateString('ja-JP');
+    dateCounts[dateKey] = (dateCounts[dateKey] || 0) + 1;
+  });
+
   const fragment = document.createDocumentFragment();
 
   displayList.forEach((bookmark) => {
+    const dateObj = new Date(bookmark.timestamp);
+    const dateKey = dateObj.toLocaleDateString('ja-JP');
+    const dateDisplay = dateObj.toLocaleDateString('ja-JP', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      weekday: 'short',
+    });
+
+    let detailsElement = (listElement.querySelector(`details[data-date="${dateKey}"]`) ||
+      fragment.querySelector(`details[data-date="${dateKey}"]`)) as HTMLDetailsElement | null;
+    let ulElement: HTMLUListElement | null = null;
+
+    if (detailsElement) {
+      ulElement = detailsElement.querySelector('.date-list');
+    } else {
+      detailsElement = document.createElement('details');
+      detailsElement.className = 'date-group';
+      detailsElement.dataset.date = dateKey;
+      // 3日以上前のグループはデフォルトで閉じ、直近3日間（今日・昨日・一昨日）は展開する
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const compareDate = new Date(bookmark.timestamp);
+      compareDate.setHours(0, 0, 0, 0);
+      const diffTime = today.getTime() - compareDate.getTime();
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      detailsElement.open = diffDays < 3;
+
+      const summary = document.createElement('summary');
+      summary.className = 'date-header';
+
+      const titleSpan = document.createElement('span');
+      titleSpan.className = 'date-title';
+      titleSpan.textContent = dateDisplay;
+
+      const countSpan = document.createElement('span');
+      countSpan.className = 'date-count';
+      countSpan.textContent = `${dateCounts[dateKey]}件`;
+
+      summary.appendChild(titleSpan);
+      summary.appendChild(countSpan);
+      detailsElement.appendChild(summary);
+
+      ulElement = document.createElement('ul');
+      ulElement.className = 'date-list';
+      detailsElement.appendChild(ulElement);
+
+      fragment.appendChild(detailsElement);
+    }
+
     const li = document.createElement('li');
     li.className = 'bookmark-item';
     li.dataset.id = bookmark.id;
@@ -466,13 +523,29 @@ function renderBookmarkList(bookmarks: Bookmark[], append = false): void {
       }
 
       // 楽観的UI更新
+      const ul = li.parentElement;
+      const details = ul?.parentElement as HTMLDetailsElement | null;
       li.remove();
+
+      if (ul && ul.children.length === 0) {
+        details?.remove();
+      } else if (details) {
+        const countSpan = details.querySelector('.date-count');
+        if (countSpan) {
+          const currentCount = ul.children.length;
+          countSpan.textContent = `${currentCount}件`;
+        }
+      }
+
       allBookmarks = allBookmarks.filter((b) => b.id !== bookmark.id);
       filteredBookmarks = filteredBookmarks.filter((b) => b.id !== bookmark.id);
 
       await storageManager.deleteBookmark(bookmark.id);
 
-      if (listElement.children.length === 0 && filteredBookmarks.length === 0) {
+      if (
+        listElement.querySelectorAll('.bookmark-item').length === 0 &&
+        filteredBookmarks.length === 0
+      ) {
         emptyElement.textContent =
           activeFilter === 'current'
             ? 'この動画のブックマーク履歴はありません。'
@@ -482,7 +555,7 @@ function renderBookmarkList(bookmarks: Bookmark[], append = false): void {
     };
     actionsDiv.appendChild(deleteBtn);
 
-    fragment.appendChild(li);
+    ulElement.appendChild(li);
   });
 
   listElement.appendChild(fragment);
@@ -652,7 +725,7 @@ function setupEventListeners(): void {
       // 最下部から 20px 以内に近づいたら次のページを追加でレンダリング
       if (scrollHeight - scrollTop - clientHeight < 20) {
         const currentListElement = document.getElementById('bookmark-list');
-        const currentCount = currentListElement?.children.length || 0;
+        const currentCount = currentListElement?.querySelectorAll('.bookmark-item').length || 0;
 
         if (currentCount < filteredBookmarks.length) {
           renderBookmarkList(allBookmarks, true);

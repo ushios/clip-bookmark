@@ -32,7 +32,7 @@ describe('User Story 3: Popup UI & Settings', () => {
               <button id="filter-all-btn" class="filter-btn">すべて表示</button>
             </div>
             <div class="list-wrapper" style="height: 300px; overflow-y: scroll;">
-              <ul id="bookmark-list"></ul>
+              <div id="bookmark-list"></div>
               <div id="no-bookmarks" class="empty-state hidden">履歴がありません</div>
             </div>
           </section>
@@ -90,7 +90,7 @@ describe('User Story 3: Popup UI & Settings', () => {
     await new Promise((resolve) => setTimeout(resolve, 50));
 
     const list = document.getElementById('bookmark-list');
-    expect(list?.children.length).toBe(2);
+    expect(list?.querySelectorAll('.bookmark-item').length).toBe(2);
 
     expect(list?.innerHTML).not.toContain('<script>');
     expect(list?.textContent).toContain('streamer_a');
@@ -128,7 +128,7 @@ describe('User Story 3: Popup UI & Settings', () => {
     await new Promise((resolve) => setTimeout(resolve, 50));
 
     const list = document.getElementById('bookmark-list');
-    const firstItem = list?.children[0] as HTMLElement;
+    const firstItem = list?.querySelector('.bookmark-item') as HTMLElement;
     const deleteBtn = firstItem.querySelector('.delete-btn') as HTMLElement;
     expect(deleteBtn).not.toBeNull();
 
@@ -136,7 +136,7 @@ describe('User Story 3: Popup UI & Settings', () => {
 
     expect(confirmMock).toHaveBeenCalled();
     expect(StorageManager.prototype.deleteBookmark).toHaveBeenCalledWith('1');
-    expect(list?.children.length).toBe(1);
+    expect(list?.querySelectorAll('.bookmark-item').length).toBe(1);
     expect(list?.textContent).not.toContain('VOD Title A');
 
     vi.unstubAllGlobals();
@@ -150,15 +150,15 @@ describe('User Story 3: Popup UI & Settings', () => {
     await new Promise((resolve) => setTimeout(resolve, 50));
 
     const list = document.getElementById('bookmark-list');
-    const initialCount = list?.children.length;
-    const firstItem = list?.children[0] as HTMLElement;
+    const initialCount = list?.querySelectorAll('.bookmark-item').length;
+    const firstItem = list?.querySelector('.bookmark-item') as HTMLElement;
     const deleteBtn = firstItem.querySelector('.delete-btn') as HTMLElement;
 
     deleteBtn.click();
 
     expect(confirmMock).toHaveBeenCalled();
     expect(StorageManager.prototype.deleteBookmark).not.toHaveBeenCalled();
-    expect(list?.children.length).toBe(initialCount);
+    expect(list?.querySelectorAll('.bookmark-item').length).toBe(initialCount);
 
     vi.unstubAllGlobals();
   });
@@ -207,7 +207,7 @@ describe('User Story 3: Popup UI & Settings', () => {
 
     const list = document.getElementById('bookmark-list');
     // 初期描画は上限 50 件
-    expect(list?.children.length).toBe(50);
+    expect(list?.querySelectorAll('.bookmark-item').length).toBe(50);
 
     const listWrapper = document.querySelector('.list-wrapper') as HTMLElement;
     // スクロール状態をシミュレート (最下部に達した状態)
@@ -221,7 +221,7 @@ describe('User Story 3: Popup UI & Settings', () => {
     listWrapper.dispatchEvent(scrollEvent);
 
     // 次の20件が追加で描画され、合計70件になること
-    expect(list?.children.length).toBe(70);
+    expect(list?.querySelectorAll('.bookmark-item').length).toBe(70);
   });
 
   it('はchrome.storage.onChangedイベントによりリアルタイム同期すること', async () => {
@@ -237,7 +237,7 @@ describe('User Story 3: Popup UI & Settings', () => {
     expect(storageListener).not.toBeNull();
 
     const list = document.getElementById('bookmark-list');
-    expect(list?.children.length).toBe(2);
+    expect(list?.querySelectorAll('.bookmark-item').length).toBe(2);
 
     // ストレージで3件目のブックマークが追加されたことをシミュレート
     const updatedBookmarks = [
@@ -266,7 +266,7 @@ describe('User Story 3: Popup UI & Settings', () => {
     }
 
     // 自動で再描画が走り、3件のブックマークがリストに並ぶこと
-    expect(list?.children.length).toBe(3);
+    expect(list?.querySelectorAll('.bookmark-item').length).toBe(3);
     expect(list?.textContent).toContain('streamer_c');
   });
 
@@ -309,7 +309,7 @@ describe('User Story 3: Popup UI & Settings', () => {
     const filterAllBtn = document.getElementById('filter-all-btn');
 
     // デフォルト（この動画のみ）では、URLが一致する「1」のブックマーク1件のみが表示されること
-    expect(list?.children.length).toBe(1);
+    expect(list?.querySelectorAll('.bookmark-item').length).toBe(1);
     expect(list?.textContent).toContain('streamer_a');
     expect(list?.textContent).not.toContain('streamer_b');
 
@@ -318,7 +318,7 @@ describe('User Story 3: Popup UI & Settings', () => {
     await new Promise((resolve) => setTimeout(resolve, 50));
 
     // すべてのブックマーク（2件）が表示されること
-    expect(list?.children.length).toBe(2);
+    expect(list?.querySelectorAll('.bookmark-item').length).toBe(2);
     expect(list?.textContent).toContain('streamer_a');
     expect(list?.textContent).toContain('streamer_b');
 
@@ -327,7 +327,7 @@ describe('User Story 3: Popup UI & Settings', () => {
     await new Promise((resolve) => setTimeout(resolve, 50));
 
     // 再度、一致する1件のみが表示されること
-    expect(list?.children.length).toBe(1);
+    expect(list?.querySelectorAll('.bookmark-item').length).toBe(1);
     expect(list?.textContent).toContain('streamer_a');
     expect(list?.textContent).not.toContain('streamer_b');
   });
@@ -369,7 +369,7 @@ describe('User Story 3: Popup UI & Settings', () => {
     const list = document.getElementById('bookmark-list');
 
     // ライブ配信が一致する「2」のブックマーク1件のみが表示されること
-    expect(list?.children.length).toBe(1);
+    expect(list?.querySelectorAll('.bookmark-item').length).toBe(1);
     expect(list?.textContent).toContain('streamer_b');
     expect(list?.textContent).not.toContain('streamer_a');
   });
@@ -437,7 +437,7 @@ describe('User Story 3: Popup UI & Settings', () => {
       await new Promise((resolve) => setTimeout(resolve, 50));
 
       const list = document.getElementById('bookmark-list');
-      expect(list?.children.length).toBe(1);
+      expect(list?.querySelectorAll('.bookmark-item').length).toBe(1);
       expect(list?.textContent).toContain('古いタイトル');
       expect(list?.textContent).not.toContain('別チャンネルの配信');
     });
@@ -490,7 +490,7 @@ describe('User Story 3: Popup UI & Settings', () => {
       await new Promise((resolve) => setTimeout(resolve, 50));
 
       const list = document.getElementById('bookmark-list');
-      expect(list?.children.length).toBe(1);
+      expect(list?.querySelectorAll('.bookmark-item').length).toBe(1);
       expect(list?.textContent).toContain('古いタイトル');
     });
 
@@ -554,7 +554,7 @@ describe('User Story 3: Popup UI & Settings', () => {
       await new Promise((resolve) => setTimeout(resolve, 50));
 
       const list = document.getElementById('bookmark-list');
-      expect(list?.children.length).toBe(1);
+      expect(list?.querySelectorAll('.bookmark-item').length).toBe(1);
       expect(list?.textContent).toContain('ライブ中に打刻');
       expect(list?.textContent).not.toContain('別のVODで打刻');
     });

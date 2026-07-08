@@ -3,7 +3,9 @@ import { ChatObserver, extractLoginFromCookie } from '../../src/content/observer
 
 describe('extractLoginFromCookie', () => {
   it('は twilight-user Cookie (JSON) からログイン名を抽出できること', () => {
-    const cookie = 'twilight-user=' + encodeURIComponent(JSON.stringify({ authToken: 'xxx', login: 'Ushio_S', id: '123' }));
+    const cookie =
+      'twilight-user=' +
+      encodeURIComponent(JSON.stringify({ authToken: 'xxx', login: 'Ushio_S', id: '123' }));
     expect(extractLoginFromCookie(cookie)).toBe('ushio_s');
   });
 

@@ -8,7 +8,11 @@ import { extractChannelLoginFromPath, fetchStreamInfo, TwitchStreamInfo } from '
  */
 export class TwitchAdapter extends BasePlatformAdapter {
   /** GQL配信情報の取得結果キャッシュ（同一保存処理内での多重リクエスト防止） */
-  private streamInfoCache: { login: string; fetchedAt: number; info: TwitchStreamInfo | null } | null = null;
+  private streamInfoCache: {
+    login: string;
+    fetchedAt: number;
+    info: TwitchStreamInfo | null;
+  } | null = null;
 
   /** GQL配信情報キャッシュの有効期間（ミリ秒） */
   private static readonly STREAM_INFO_TTL_MS = 60_000;
@@ -45,8 +49,10 @@ export class TwitchAdapter extends BasePlatformAdapter {
    */
   public async isLive(): Promise<boolean> {
     const isVodUrl = window.location.pathname.includes('/videos/');
-    const liveIndicator = document.querySelector('[data-a-target="player-live-indicator"], .live-indicator-container');
-    
+    const liveIndicator = document.querySelector(
+      '[data-a-target="player-live-indicator"], .live-indicator-container',
+    );
+
     return !isVodUrl || !!liveIndicator;
   }
 
@@ -177,7 +183,12 @@ export class TwitchAdapter extends BasePlatformAdapter {
 
     // 2. ライブ配信中の場合、またはDOMから取得できない場合はURLの第1パスから取得
     const pathParts = window.location.pathname.replace(/^\//, '').split('/');
-    if (pathParts[0] && pathParts[0] !== 'videos' && pathParts[0] !== 'directory' && pathParts[0] !== 'search') {
+    if (
+      pathParts[0] &&
+      pathParts[0] !== 'videos' &&
+      pathParts[0] !== 'directory' &&
+      pathParts[0] !== 'search'
+    ) {
       return pathParts[0];
     }
 
@@ -263,7 +274,7 @@ export class TwitchAdapter extends BasePlatformAdapter {
         if (archiveMatch && archiveMatch[1]) {
           return archiveMatch[1];
         }
-        
+
         // パターン2: "archiveVideoId":"123456789"
         const archiveIdMatch = content.match(/"archiveVideoId"\s*:\s*"(\d+)"/i);
         if (archiveIdMatch && archiveIdMatch[1]) {

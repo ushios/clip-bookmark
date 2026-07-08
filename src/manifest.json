@@ -3,26 +3,16 @@
   "name": "Clip Bookmark",
   "version": "1.4.0",
   "description": "配信や動画の再生位置を簡単かつ安全にブックマークする拡張機能です。",
-  "permissions": [
-    "storage",
-    "activeTab",
-    "tabs"
-  ],
-  "host_permissions": [
-    "https://*.twitch.tv/*"
-  ],
+  "permissions": ["storage", "activeTab", "tabs"],
+  "host_permissions": ["https://*.twitch.tv/*"],
   "background": {
     "service_worker": "background/index.js",
     "type": "module"
   },
   "content_scripts": [
     {
-      "matches": [
-        "https://*.twitch.tv/*"
-      ],
-      "js": [
-        "content/index.js"
-      ]
+      "matches": ["https://*.twitch.tv/*"],
+      "js": ["content/index.js"]
     }
   ],
   "action": {

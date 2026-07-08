@@ -50,8 +50,9 @@ export function validateVideoUrl(url: string): boolean {
   }
 
   // Twitchの配信またはVODの正規表現パターン (クエリパラメータやハッシュも含めて許容)
-  const twitchUrlPattern = /^https:\/\/(?:[a-z0-9-]+\.)?twitch\.tv\/(?:videos\/\d+|[a-zA-Z0-9_]+)(?:\?.*)?(?:#.*)?$/i;
-  
+  const twitchUrlPattern =
+    /^https:\/\/(?:[a-z0-9-]+\.)?twitch\.tv\/(?:videos\/\d+|[a-zA-Z0-9_]+)(?:\?.*)?(?:#.*)?$/i;
+
   return twitchUrlPattern.test(url);
 }
 

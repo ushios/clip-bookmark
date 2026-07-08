@@ -24,6 +24,64 @@ let activeTabChannelLogin: string | null = null;
 let activeTabIsLive: boolean = false;
 const PAGE_SIZE = 50;
 
+let activeTooltip: HTMLDivElement | null = null;
+
+function showTooltip(target: HTMLElement, text: string): void {
+  if (activeTooltip) {
+    activeTooltip.remove();
+  }
+
+  const tooltip = document.createElement('div');
+  tooltip.className = 'custom-tooltip';
+  tooltip.textContent = text;
+  document.body.appendChild(tooltip);
+  activeTooltip = tooltip;
+
+  const targetRect = target.getBoundingClientRect();
+  const tooltipRect = tooltip.getBoundingClientRect();
+
+  let left = targetRect.left + (targetRect.width - tooltipRect.width) / 2;
+  let top = targetRect.top - tooltipRect.height - 8;
+
+  const margin = 8;
+  const maxLeft = document.body.clientWidth - tooltipRect.width - margin;
+  if (left < margin) {
+    left = margin;
+  } else if (left > maxLeft) {
+    left = maxLeft;
+  }
+
+  if (top < margin) {
+    top = targetRect.bottom + 8;
+  }
+
+  tooltip.style.left = `${left}px`;
+  tooltip.style.top = `${top}px`;
+
+  requestAnimationFrame(() => {
+    tooltip.classList.add('visible');
+  });
+}
+
+function hideTooltip(): void {
+  if (activeTooltip) {
+    activeTooltip.remove();
+    activeTooltip = null;
+  }
+}
+
+function bindTooltip(element: HTMLElement, getTooltipText: () => string): void {
+  element.addEventListener('mouseenter', () => {
+    showTooltip(element, getTooltipText());
+  });
+  element.addEventListener('mouseleave', () => {
+    hideTooltip();
+  });
+  element.addEventListener('click', () => {
+    hideTooltip();
+  });
+}
+
 /**
  * URLからクエリやハッシュを除去したベースURLを取得する
  */
@@ -119,9 +177,10 @@ function renderBookmarkList(bookmarks: Bookmark[], append = false): void {
 
   if (filteredBookmarks.length === 0) {
     if (!append) {
-      emptyElement.textContent = activeFilter === 'current'
-        ? 'この動画のブックマーク履歴はありません。'
-        : 'ブックマークがありません。 Alt+B またはチャットで打刻してください。';
+      emptyElement.textContent =
+        activeFilter === 'current'
+          ? 'この動画のブックマーク履歴はありません。'
+          : 'ブックマークがありません。 Alt+B またはチャットで打刻してください。';
       emptyElement.classList.remove('hidden');
     }
     return;
@@ -177,7 +236,11 @@ function renderBookmarkList(bookmarks: Bookmark[], append = false): void {
       const warningSpan = document.createElement('span');
       warningSpan.className = 'vod-warning';
       warningSpan.textContent = '⚠';
-      warningSpan.title = 'アーカイブのVOD IDが未設定のため、アーカイブの該当位置へジャンプできません。✎ボタンからVOD IDを設定してください。';
+      bindTooltip(
+        warningSpan,
+        () =>
+          '動画アーカイブURLを取得できませんでした。編集アイコンをクリックし、手動でURLを設定してください。',
+      );
       metaDiv.appendChild(warningSpan);
     }
 
@@ -224,9 +287,11 @@ function renderBookmarkList(bookmarks: Bookmark[], append = false): void {
     const copyBtn = document.createElement('button');
     copyBtn.className = 'copy-btn icon-btn';
     copyBtn.textContent = '📋';
-    copyBtn.title = hasVodUrl
-      ? 'タイムスタンプ付きURLをコピー'
-      : `タイムスタンプ (?t=${formatSecondsToTwitchTimestamp(bookmark.relativeTime)}) をコピー`;
+    bindTooltip(copyBtn, () =>
+      hasVodUrl
+        ? 'タイムスタンプ付きURLをコピー'
+        : `タイムスタンプ (?t=${formatSecondsToTwitchTimestamp(bookmark.relativeTime)}) をコピー`,
+    );
     copyBtn.onclick = async (e) => {
       e.stopPropagation();
       // VOD URL未設定の場合は、アーカイブURLの末尾にそのまま貼り付けられる ?t= 形式でコピーする
@@ -249,7 +314,7 @@ function renderBookmarkList(bookmarks: Bookmark[], append = false): void {
     const vodEditBtn = document.createElement('button');
     vodEditBtn.className = 'vod-edit-btn icon-btn';
     vodEditBtn.textContent = '✎';
-    vodEditBtn.title = 'アーカイブのVOD IDを設定・修正';
+    bindTooltip(vodEditBtn, () => '動画アーカイブURLを編集');
     actionsDiv.appendChild(vodEditBtn);
 
     // 2.5 メモエリアの追加
@@ -287,8 +352,10 @@ function renderBookmarkList(bookmarks: Bookmark[], append = false): void {
       }
 
       const updatedBookmark = { ...bookmark, memo: newMemo || undefined };
-      allBookmarks = allBookmarks.map(b => b.id === bookmark.id ? updatedBookmark : b);
-      filteredBookmarks = filteredBookmarks.map(b => b.id === bookmark.id ? updatedBookmark : b);
+      allBookmarks = allBookmarks.map((b) => (b.id === bookmark.id ? updatedBookmark : b));
+      filteredBookmarks = filteredBookmarks.map((b) =>
+        b.id === bookmark.id ? updatedBookmark : b,
+      );
 
       memoSpan.textContent = newMemo ? newMemo : 'メモを追加...';
       if (newMemo) {
@@ -358,7 +425,9 @@ function renderBookmarkList(bookmarks: Bookmark[], append = false): void {
 
       const vodId = parseVodIdInput(rawInput);
       if (!vodId) {
-        alert('VOD ID（数字）または https://www.twitch.tv/videos/... 形式のURLを入力してください。');
+        alert(
+          'VOD ID（数字）または https://www.twitch.tv/videos/... 形式のURLを入力してください。',
+        );
         return;
       }
 
@@ -389,7 +458,7 @@ function renderBookmarkList(bookmarks: Bookmark[], append = false): void {
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'delete-btn';
     deleteBtn.textContent = '🗑';
-    deleteBtn.title = '削除';
+    bindTooltip(deleteBtn, () => 'ブックマークを削除');
     deleteBtn.onclick = async () => {
       // 誤クリック防止のための確認ダイアログ
       if (!confirm(`このブックマークを削除しますか？\n「${bookmark.title}」`)) {
@@ -400,13 +469,14 @@ function renderBookmarkList(bookmarks: Bookmark[], append = false): void {
       li.remove();
       allBookmarks = allBookmarks.filter((b) => b.id !== bookmark.id);
       filteredBookmarks = filteredBookmarks.filter((b) => b.id !== bookmark.id);
-      
+
       await storageManager.deleteBookmark(bookmark.id);
-      
+
       if (listElement.children.length === 0 && filteredBookmarks.length === 0) {
-        emptyElement.textContent = activeFilter === 'current'
-          ? 'この動画のブックマーク履歴はありません。'
-          : 'ブックマークがありません。 Alt+B またはチャットで打刻してください。';
+        emptyElement.textContent =
+          activeFilter === 'current'
+            ? 'この動画のブックマーク履歴はありません。'
+            : 'ブックマークがありません。 Alt+B またはチャットで打刻してください。';
         emptyElement.classList.remove('hidden');
       }
     };
@@ -450,7 +520,7 @@ function renderSettings(settings: Settings): void {
     removeBtn.onclick = async () => {
       const updatedWords = settings.triggerWords.filter((w) => w !== word);
       const newSettings = { ...settings, triggerWords: updatedWords };
-      
+
       await storageManager.saveSettings(newSettings);
       renderSettings(newSettings);
     };
@@ -577,12 +647,13 @@ function setupEventListeners(): void {
   const listWrapper = document.querySelector('.list-wrapper');
   if (listWrapper) {
     listWrapper.addEventListener('scroll', () => {
+      hideTooltip();
       const { scrollTop, scrollHeight, clientHeight } = listWrapper;
       // 最下部から 20px 以内に近づいたら次のページを追加でレンダリング
       if (scrollHeight - scrollTop - clientHeight < 20) {
         const currentListElement = document.getElementById('bookmark-list');
         const currentCount = currentListElement?.children.length || 0;
-        
+
         if (currentCount < filteredBookmarks.length) {
           renderBookmarkList(allBookmarks, true);
         }
@@ -610,6 +681,7 @@ function setupEventListeners(): void {
  * ポップアップ起動時の初期化処理
  */
 export async function initPopup(): Promise<void> {
+  hideTooltip();
   // テスト間や再開時の状態リークを防ぐために明示的に初期化
   activeFilter = 'current';
   activeTabUrl = null;
@@ -631,27 +703,37 @@ export async function initPopup(): Promise<void> {
     // Twitchページであれば、Content Script にリアルタイム情報を問い合わせる
     if (activeTab.url.includes('twitch.tv')) {
       await new Promise<void>((resolve) => {
-        chrome.tabs.sendMessage(activeTab.id!, { action: MESSAGE_ACTIONS.GET_VIDEO_INFO }, (response) => {
-          if (chrome.runtime.lastError) {
-            // Content Scriptがロードされていない、または非アクティブな場合はフォールバック
-            console.warn('Failed to communicate with content script:', chrome.runtime.lastError.message);
-          } else if (response && response.success) {
-            activeTabUrl = response.videoUrl || activeTab.url;
-            activeTabTitle = response.title || null;
-            activeTabChannel = response.channelName || null;
-            // ログイン名はContent Scriptの応答を優先し、なければタブURLから導出
-            activeTabChannelLogin =
-              response.channelLogin || getChannelLoginFromUrl(activeTab.url || '') || null;
-            activeTabIsLive = !!response.isLive;
-          }
-          resolve();
-        });
+        chrome.tabs.sendMessage(
+          activeTab.id!,
+          { action: MESSAGE_ACTIONS.GET_VIDEO_INFO },
+          (response) => {
+            if (chrome.runtime.lastError) {
+              // Content Scriptがロードされていない、または非アクティブな場合はフォールバック
+              console.warn(
+                'Failed to communicate with content script:',
+                chrome.runtime.lastError.message,
+              );
+            } else if (response && response.success) {
+              activeTabUrl = response.videoUrl || activeTab.url;
+              activeTabTitle = response.title || null;
+              activeTabChannel = response.channelName || null;
+              // ログイン名はContent Scriptの応答を優先し、なければタブURLから導出
+              activeTabChannelLogin =
+                response.channelLogin || getChannelLoginFromUrl(activeTab.url || '') || null;
+              activeTabIsLive = !!response.isLive;
+            }
+            resolve();
+          },
+        );
       });
     }
   }
 
   // 非Twitchページで開いた場合は、デフォルトで「すべて表示」にして空画面を避ける
-  const isTwitchVideoOrLive = activeTabUrl && activeTabUrl.includes('twitch.tv') && (activeTabUrl.includes('/videos/') || activeTabChannel);
+  const isTwitchVideoOrLive =
+    activeTabUrl &&
+    activeTabUrl.includes('twitch.tv') &&
+    (activeTabUrl.includes('/videos/') || activeTabChannel);
   if (!isTwitchVideoOrLive) {
     activeFilter = 'all';
   }

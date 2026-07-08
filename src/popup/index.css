@@ -10,7 +10,7 @@
   --danger-color: #eb0400;
   --danger-hover: #c20300;
   --border-color: #2f2f35;
-  --font-family: Inter, Roobert, "Helvetica Neue", Arial, sans-serif;
+  --font-family: Inter, Roobert, 'Helvetica Neue', Arial, sans-serif;
 }
 
 body {
@@ -125,7 +125,6 @@ main {
   color: var(--text-color);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
-
 
 /* 履歴ヘッダー */
 .history-header {
@@ -318,7 +317,7 @@ ul {
   margin-bottom: 12px;
 }
 
-input[type="text"] {
+input[type='text'] {
   flex-grow: 1;
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-color);
@@ -330,7 +329,7 @@ input[type="text"] {
   transition: border-color 0.2s ease;
 }
 
-input[type="text"]:focus {
+input[type='text']:focus {
   border-color: var(--primary-color);
 }
 
@@ -479,7 +478,9 @@ input[type="text"]:focus {
   word-break: break-all;
   padding: 2px 4px;
   border-radius: 4px;
-  transition: background-color 0.2s ease, color 0.2s ease;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
 }
 
 .memo-text:hover {
@@ -502,4 +503,32 @@ input[type="text"]:focus {
   padding: 6px 8px;
   font-size: 12px;
   outline: none;
+}
+
+/* カスタムツールチップ */
+.custom-tooltip {
+  position: fixed;
+  background-color: var(--bg-secondary);
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 11px;
+  line-height: 1.4;
+  z-index: 9999;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  max-width: 240px;
+  word-wrap: break-word;
+  white-space: normal;
+  opacity: 0;
+  transform: translateY(4px);
+  transition:
+    opacity 0.1s ease,
+    transform 0.1s ease;
+}
+
+.custom-tooltip.visible {
+  opacity: 1;
+  transform: translateY(0);
 }

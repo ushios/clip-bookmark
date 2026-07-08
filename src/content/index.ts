@@ -151,19 +151,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       twitchAdapter.getChannelName(),
       twitchAdapter.getChannelLogin(),
       twitchAdapter.isLive(),
-    ]).then(([videoUrl, title, channelName, channelLogin, isLive]) => {
-      sendResponse({
-        success: true,
-        videoUrl,
-        title,
-        channelName,
-        channelLogin,
-        isLive,
+    ])
+      .then(([videoUrl, title, channelName, channelLogin, isLive]) => {
+        sendResponse({
+          success: true,
+          videoUrl,
+          title,
+          channelName,
+          channelLogin,
+          isLive,
+        });
+      })
+      .catch((err) => {
+        console.error('Failed to get video info:', err);
+        sendResponse({ success: false, error: err.message });
       });
-    }).catch((err) => {
-      console.error('Failed to get video info:', err);
-      sendResponse({ success: false, error: err.message });
-    });
 
     return true; // 非同期応答を有効化
   }

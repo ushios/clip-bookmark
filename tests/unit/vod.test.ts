@@ -15,8 +15,12 @@ describe('VOD Utilities', () => {
     });
 
     it('はクエリパラメータ付きのVOD URLからIDを抽出できること', () => {
-      expect(parseVodIdInput('https://www.twitch.tv/videos/123456789?t=1h23m45s')).toBe('123456789');
-      expect(parseVodIdInput('https://www.twitch.tv/videos/123456789?t=0h01m05s&foo=bar')).toBe('123456789');
+      expect(parseVodIdInput('https://www.twitch.tv/videos/123456789?t=1h23m45s')).toBe(
+        '123456789',
+      );
+      expect(parseVodIdInput('https://www.twitch.tv/videos/123456789?t=0h01m05s&foo=bar')).toBe(
+        '123456789',
+      );
     });
 
     it('はスキームなしのVOD URLからIDを抽出できること', () => {

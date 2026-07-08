@@ -10,7 +10,7 @@ export const MESSAGE_ACTIONS = {
   GET_VIDEO_INFO: 'GET_VIDEO_INFO',
 } as const;
 
-export type MessageAction = typeof MESSAGE_ACTIONS[keyof typeof MESSAGE_ACTIONS];
+export type MessageAction = (typeof MESSAGE_ACTIONS)[keyof typeof MESSAGE_ACTIONS];
 
 /**
  * 拡張機能内でやり取りされるメッセージの共通インターフェース

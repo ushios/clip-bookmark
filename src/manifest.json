@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Clip Bookmark",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "description": "配信や動画の再生位置を簡単かつ安全にブックマークする拡張機能です。",
   "permissions": ["storage", "activeTab", "tabs"],
   "host_permissions": ["https://*.twitch.tv/*"],

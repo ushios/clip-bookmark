@@ -142,6 +142,28 @@ describe('User Story 3: Popup UI & Settings', () => {
     vi.unstubAllGlobals();
   });
 
+  it('は日付グループの削除ボタンをクリックし確認ダイアログで承認した際、その日のすべてのブックマークを削除すること', async () => {
+    vi.spyOn(StorageManager.prototype, 'deleteBookmarks').mockResolvedValue(undefined);
+    const confirmMock = vi.fn().mockReturnValue(true);
+    vi.stubGlobal('confirm', confirmMock);
+
+    await initPopup();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const list = document.getElementById('bookmark-list');
+    const dateHeader = list?.querySelector('.date-header') as HTMLElement;
+    const dateDeleteBtn = dateHeader?.querySelector('.date-delete-btn') as HTMLElement;
+    expect(dateDeleteBtn).not.toBeNull();
+
+    dateDeleteBtn.click();
+
+    expect(confirmMock).toHaveBeenCalled();
+    expect(StorageManager.prototype.deleteBookmarks).toHaveBeenCalledWith(['1', '2']);
+    expect(list?.querySelectorAll('.bookmark-item').length).toBe(0);
+
+    vi.unstubAllGlobals();
+  });
+
   it('は削除の確認ダイアログでキャンセルした際、削除を行わないこと', async () => {
     const confirmMock = vi.fn().mockReturnValue(false);
     vi.stubGlobal('confirm', confirmMock);

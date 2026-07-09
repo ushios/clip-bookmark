@@ -172,6 +172,53 @@ describe('StorageManager', () => {
         isLive: true,
       });
     });
+
+    it('は指定した複数のIDのブックマークを一括削除できること', async () => {
+      const b1: Bookmark = {
+        id: '1',
+        platform: 'twitch',
+        channelName: 'test',
+        title: 'a',
+        videoUrl: 'https://twitch.tv/videos/1',
+        timestamp: new Date().toISOString(),
+        relativeTime: 1,
+        isLive: false,
+      };
+      const b2: Bookmark = {
+        id: '2',
+        platform: 'twitch',
+        channelName: 'test',
+        title: 'b',
+        videoUrl: 'https://twitch.tv/videos/2',
+        timestamp: new Date().toISOString(),
+        relativeTime: 2,
+        isLive: false,
+      };
+      const b3: Bookmark = {
+        id: '3',
+        platform: 'twitch',
+        channelName: 'test',
+        title: 'c',
+        videoUrl: 'https://twitch.tv/videos/3',
+        timestamp: new Date().toISOString(),
+        relativeTime: 3,
+        isLive: false,
+      };
+
+      vi.mocked(chrome.storage.local.get).mockImplementation((_keys, callback) => {
+        if (callback) callback({ bookmarks: [b1, b2, b3] });
+        return Promise.resolve({ bookmarks: [b1, b2, b3] });
+      });
+
+      const manager = StorageManager.getInstance();
+      await manager.deleteBookmarks(['1', '3']);
+
+      const setCallArgs = vi.mocked(chrome.storage.local.set).mock.calls[0][0] as {
+        bookmarks: Bookmark[];
+      };
+      expect(setCallArgs.bookmarks.length).toBe(1);
+      expect(setCallArgs.bookmarks[0].id).toBe('2');
+    });
   });
 
   describe('Settings Operations', () => {

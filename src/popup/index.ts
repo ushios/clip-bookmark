@@ -24,6 +24,9 @@ let activeTabChannelLogin: string | null = null;
 let activeTabIsLive: boolean = false;
 const PAGE_SIZE = 50;
 
+// 日付グループの開閉状態を保持するキャッシュ (キー: dateKey "YYYY/M/D", 値: boolean)
+const dateGroupOpenStates: Record<string, boolean> = {};
+
 let activeTooltip: HTMLDivElement | null = null;
 
 function showTooltip(target: HTMLElement, text: string): void {
@@ -224,14 +227,26 @@ function renderBookmarkList(bookmarks: Bookmark[], append = false): void {
       detailsElement = document.createElement('details');
       detailsElement.className = 'date-group';
       detailsElement.dataset.date = dateKey;
-      // 3日以上前のグループはデフォルトで閉じ、直近3日間（今日・昨日・一昨日）は展開する
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const compareDate = new Date(bookmark.timestamp);
-      compareDate.setHours(0, 0, 0, 0);
-      const diffTime = today.getTime() - compareDate.getTime();
-      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-      detailsElement.open = diffDays < 3;
+
+      // 過去にユーザーが操作した開閉状態があればそれを維持し、なければ初期状態を決定する
+      let isOpen = dateGroupOpenStates[dateKey];
+      if (isOpen === undefined) {
+        // 3日以上前のグループはデフォルトで閉じ、直近3日間（今日・昨日・一昨日）は展開する
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const compareDate = new Date(bookmark.timestamp);
+        compareDate.setHours(0, 0, 0, 0);
+        const diffTime = today.getTime() - compareDate.getTime();
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+        isOpen = diffDays < 3;
+        dateGroupOpenStates[dateKey] = isOpen;
+      }
+      detailsElement.open = isOpen;
+
+      // ユーザーの手動開閉操作をキャッシュに反映する
+      detailsElement.addEventListener('toggle', () => {
+        dateGroupOpenStates[dateKey] = detailsElement!.open;
+      });
 
       const summary = document.createElement('summary');
       summary.className = 'date-header';
@@ -244,8 +259,58 @@ function renderBookmarkList(bookmarks: Bookmark[], append = false): void {
       countSpan.className = 'date-count';
       countSpan.textContent = `${dateCounts[dateKey]}件`;
 
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'date-delete-btn';
+      deleteBtn.textContent = '🗑';
+      bindTooltip(deleteBtn, () => 'この日のブックマークをすべて削除');
+      deleteBtn.onclick = async (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+
+        const count = dateCounts[dateKey];
+        if (!confirm(`${dateDisplay} のブックマーク ${count}件 をすべて削除しますか？`)) {
+          return;
+        }
+
+        const targetIds: string[] = [];
+        allBookmarks = allBookmarks.filter((b) => {
+          const bDateKey = new Date(b.timestamp).toLocaleDateString('ja-JP');
+          if (bDateKey === dateKey) {
+            targetIds.push(b.id);
+            return false;
+          }
+          return true;
+        });
+
+        filteredBookmarks = filteredBookmarks.filter((b) => {
+          const bDateKey = new Date(b.timestamp).toLocaleDateString('ja-JP');
+          return bDateKey !== dateKey;
+        });
+
+        detailsElement.remove();
+
+        await storageManager.deleteBookmarks(targetIds);
+
+        if (
+          listElement.querySelectorAll('.bookmark-item').length === 0 &&
+          filteredBookmarks.length === 0
+        ) {
+          emptyElement.textContent =
+            activeFilter === 'current'
+              ? 'この動画のブックマーク履歴はありません。'
+              : 'ブックマークがありません。 Alt+B またはチャットで打刻してください。';
+          emptyElement.classList.remove('hidden');
+        }
+      };
+
       summary.appendChild(titleSpan);
-      summary.appendChild(countSpan);
+
+      const rightDiv = document.createElement('div');
+      rightDiv.className = 'date-header-right';
+      rightDiv.appendChild(countSpan);
+      rightDiv.appendChild(deleteBtn);
+      summary.appendChild(rightDiv);
+
       detailsElement.appendChild(summary);
 
       ulElement = document.createElement('ul');
@@ -756,6 +821,9 @@ function setupEventListeners(): void {
 export async function initPopup(): Promise<void> {
   hideTooltip();
   // テスト間や再開時の状態リークを防ぐために明示的に初期化
+  for (const key in dateGroupOpenStates) {
+    delete dateGroupOpenStates[key];
+  }
   activeFilter = 'current';
   activeTabUrl = null;
   activeTabTitle = null;

@@ -604,3 +604,33 @@ details:not([open]) .date-title::before {
 .date-list .bookmark-item:last-child {
   border-bottom: none;
 }
+
+.date-header-right {
+  display: flex;
+  align-items: center;
+}
+
+/* 日付ごと一括削除ボタン */
+.date-delete-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 6px;
+  margin-left: 8px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  display: none; /* デフォルト非表示 */
+  line-height: 1;
+}
+
+.date-delete-btn:hover {
+  color: var(--danger-color);
+  background-color: rgba(235, 4, 0, 0.1);
+}
+
+/* 閉じている時だけ表示 */
+details:not([open]) .date-delete-btn {
+  display: inline-block;
+}

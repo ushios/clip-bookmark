@@ -118,6 +118,17 @@ export class StorageManager {
   }
 
   /**
+   * 指定した複数のIDのブックマークを一括削除
+   */
+  public async deleteBookmarks(ids: string[]): Promise<void> {
+    return this.enqueue(async () => {
+      const bookmarks = await this.getBookmarks();
+      const filtered = bookmarks.filter((b) => !ids.includes(b.id));
+      await this.setStorage('local', { bookmarks: filtered });
+    });
+  }
+
+  /**
    * すべてのブックマークをクリア
    */
   public async clearAllBookmarks(): Promise<void> {
